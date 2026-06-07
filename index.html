@@ -17,6 +17,8 @@
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getFirestore, doc, getDoc, setDoc }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyDXpHC0986CjtC9s7woLqYbzD3zlCVyxnU",
@@ -30,14 +32,24 @@
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
+  const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // Expose to global scope for use in non-module script
+  // Expose to global scope
   window._fbAuth = auth;
   window._fbProvider = provider;
   window._fbSignIn = () => signInWithPopup(auth, provider);
   window._fbSignOut = () => signOut(auth);
   window._fbOnAuthStateChanged = (cb) => onAuthStateChanged(auth, cb);
+
+  // Firestore helpers
+  window._fbSave = async (uid, data) => {
+    await setDoc(doc(db, 'users', uid), data);
+  };
+  window._fbLoad = async (uid) => {
+    const snap = await getDoc(doc(db, 'users', uid));
+    return snap.exists() ? snap.data() : null;
+  };
 </script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -722,10 +734,32 @@ const CHECK_SVG_LG = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none
 
 function getStorage() { try { return JSON.parse(localStorage.getItem('_30dc_pub') || '{}'); } catch(e) { return {}; } }
 let currentUserId = null;
-function storageKey() { return currentUserId ? `_30dc_${currentUserId}` : '_30dc_pub'; }
-function getStorage() { try { return JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch(e) { return {}; } }
-function setStorage(d) { try { localStorage.setItem(storageKey(), JSON.stringify(d)); } catch(e) {} }
-function save() { setStorage({ habits, checked, notes, startDate: startDate ? startDate.toISOString() : null, challengeTitle, userName }); }
+
+// localStorage key per user (used as fast local cache)
+function lsKey() { return currentUserId ? `_30dc_${currentUserId}` : '_30dc_anon'; }
+
+// Write to both Firestore (source of truth) and localStorage (cache)
+function save() {
+  const data = {
+    habits, checked, notes,
+    startDate: startDate ? startDate.toISOString() : null,
+    challengeTitle, userName
+  };
+  // Always write to localStorage immediately for snappy UX
+  try { localStorage.setItem(lsKey(), JSON.stringify(data)); } catch(e) {}
+  // Write to Firestore in background — no await, fire and forget
+  if (currentUserId && window._fbSave) {
+    window._fbSave(currentUserId, data).catch(e => console.warn('Firestore save failed:', e));
+  }
+}
+
+// Not used directly anymore — kept for fallback
+function getStorage() {
+  try { return JSON.parse(localStorage.getItem(lsKey()) || '{}'); } catch(e) { return {}; }
+}
+function setStorage(d) {
+  try { localStorage.setItem(lsKey(), JSON.stringify(d)); } catch(e) {}
+}
 
 function initSetupForm() {
   document.getElementById('setupDate').value = new Date().toISOString().slice(0,10);
@@ -1141,14 +1175,19 @@ function submitFeedback() {
   setTimeout(closeFeedback, 2800);
 }
 
+function loadDataIntoApp(s) {
+  habits = s.habits; checked = s.checked || {}; notes = s.notes || {};
+  startDate = new Date(s.startDate);
+  challengeTitle = s.challengeTitle || '30-Day Challenge';
+  userName = s.userName || '';
+  launchApp();
+}
+
 function init() {
-  const s = getStorage();
-  if (s.habits && s.habits.length >= 2 && s.startDate) {
-    habits = s.habits; checked = s.checked || {}; notes = s.notes || {};
-    startDate = new Date(s.startDate);
-    challengeTitle = s.challengeTitle || '30-Day Challenge';
-    userName = s.userName || '';
-    launchApp();
+  // Try localStorage first for instant load
+  const ls = getStorage();
+  if (ls.habits && ls.habits.length >= 2 && ls.startDate) {
+    loadDataIntoApp(ls);
   } else {
     initSetupForm();
     document.getElementById('setupScreen').style.display = 'block';
@@ -1171,28 +1210,60 @@ function updateUserChip(user) {
 
 function handleSignIn() {
   if (!window._fbSignIn) { alert('Auth not ready yet — please wait a moment.'); return; }
-  window._fbSignIn().catch(err => alert('Sign-in failed. Please try again.'));
+  window._fbSignIn().catch(() => alert('Sign-in failed. Please try again.'));
 }
 
 function handleSignOut() {
-  if (!confirm('Sign out? Your data stays saved on this device.')) return;
+  if (!confirm('Sign out? Your data is saved to the cloud.')) return;
   if (window._fbSignOut) window._fbSignOut();
 }
 
-function bootApp() {
+async function bootApp() {
   if (!window._fbOnAuthStateChanged) { setTimeout(bootApp, 200); return; }
-  window._fbOnAuthStateChanged(user => {
+  window._fbOnAuthStateChanged(async user => {
     document.getElementById('authLoading').style.display = 'none';
     if (user) {
       currentUserId = user.uid;
       document.getElementById('authGate').style.display = 'none';
       updateUserChip(user);
-      // Pre-fill name from Google profile if setup is fresh
+
+      // Pre-fill name from Google profile
       const setupNameEl = document.getElementById('setupName');
       if (setupNameEl && !setupNameEl.value && user.displayName) {
         setupNameEl.value = user.displayName.split(' ')[0];
       }
-      init();
+
+      // Show loading while fetching from Firestore
+      document.getElementById('authLoading').style.display = 'flex';
+      document.getElementById('authLoading').querySelector('span') &&
+        (document.getElementById('authLoading').querySelector('div + *').textContent = 'Loading your data…');
+
+      try {
+        // Try Firestore first (source of truth, works across devices)
+        const cloudData = window._fbLoad ? await window._fbLoad(user.uid) : null;
+        document.getElementById('authLoading').style.display = 'none';
+
+        if (cloudData && cloudData.habits && cloudData.habits.length >= 2 && cloudData.startDate) {
+          // Also update localStorage cache
+          try { localStorage.setItem(lsKey(), JSON.stringify(cloudData)); } catch(e) {}
+          loadDataIntoApp(cloudData);
+        } else {
+          // No cloud data — check localStorage (might be from before Firestore was added)
+          const ls = getStorage();
+          if (ls.habits && ls.habits.length >= 2 && ls.startDate) {
+            loadDataIntoApp(ls);
+            save(); // Push existing localStorage data up to Firestore
+          } else {
+            initSetupForm();
+            document.getElementById('setupScreen').style.display = 'block';
+          }
+        }
+      } catch(e) {
+        // Firestore failed (offline?) — fall back to localStorage
+        console.warn('Firestore load failed, using localStorage:', e);
+        document.getElementById('authLoading').style.display = 'none';
+        init();
+      }
     } else {
       currentUserId = null;
       document.getElementById('authGate').style.display = 'flex';
@@ -1291,7 +1362,6 @@ function exportProgress() {
   URL.revokeObjectURL(url);
 }
 
-init();
 </script>
 </body>
 </html>
