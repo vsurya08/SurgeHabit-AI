@@ -12,6 +12,33 @@
   gtag('js', new Date());
   gtag('config', 'G-K1R1KM2W9N');
 </script>
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDXpHC0986CjtC9s7woLqYbzD3zlCVyxnU",
+    authDomain: "day-habittracker.firebaseapp.com",
+    projectId: "day-habittracker",
+    storageBucket: "day-habittracker.firebasestorage.app",
+    messagingSenderId: "804090806521",
+    appId: "1:804090806521:web:a841210037cbd36b05e228",
+    measurementId: "G-XFM2N41V23"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // Expose to global scope for use in non-module script
+  window._fbAuth = auth;
+  window._fbProvider = provider;
+  window._fbSignIn = () => signInWithPopup(auth, provider);
+  window._fbSignOut = () => signOut(auth);
+  window._fbOnAuthStateChanged = (cb) => onAuthStateChanged(auth, cb);
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -411,10 +438,116 @@
     .setup-habit-short { display: none; }
     .setup-habit-time { display: none; }
   }
+
+  /* ── AUTH ── */
+  .auth-gate {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+  }
+  .auth-gate h1 { font-family: 'DM Serif Display', serif; font-size: 36px; font-weight: 400; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .auth-gate h1 em { font-style: italic; color: var(--muted); }
+  .auth-gate p { font-size: 14px; color: var(--muted); margin-bottom: 32px; line-height: 1.6; max-width: 360px; }
+  .google-signin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 12px 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .google-signin-btn:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); transform: translateY(-1px); }
+  .google-signin-btn svg { flex-shrink: 0; }
+  .auth-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .auth-loading-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--muted);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .user-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 4px 12px 4px 4px;
+    cursor: default;
+  }
+  .user-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+  .user-avatar-placeholder {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--c1);
+    color: white;
+    font-size: 11px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .user-name { font-size: 12px; color: var(--ink); font-weight: 500; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .signout-btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color 0.1s;
+  }
+  .signout-btn:hover { color: var(--ink); }
 </style>
 </head>
 <body>
 <div class="app">
+
+  <!-- AUTH LOADING -->
+  <div id="authLoading" class="auth-loading">
+    <div class="auth-loading-spinner"></div>
+    Signing you in…
+  </div>
+
+  <!-- AUTH GATE (shown when signed out) -->
+  <div id="authGate" class="auth-gate" style="display:none">
+    <h1>30-Day<br><em>Challenge</em></h1>
+    <p>Sign in with Google to start your challenge. Your progress is saved privately per account — two people can use the same device with separate data.</p>
+    <button class="google-signin-btn" onclick="handleSignIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
 
   <!-- SETUP SCREEN -->
   <div class="setup-screen" id="setupScreen">
@@ -459,7 +592,14 @@
   <div class="main-app" id="mainApp">
 
     <header class="site-header">
-      <h1 id="appTitle">30-Day <em>Challenge</em></h1>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <h1 id="appTitle">30-Day <em>Challenge</em></h1>
+        <div id="userChip" class="user-chip" style="margin-top:6px">
+          <div class="user-avatar-placeholder" id="userInitial">?</div>
+          <span class="user-name" id="userDisplayName">User</span>
+          <button class="signout-btn" onclick="handleSignOut()">Sign out</button>
+        </div>
+      </div>
       <div class="header-meta">
         <span id="appDateLabel"></span>
         <button class="reset-challenge-btn" onclick="confirmReset()">← Edit setup</button>
@@ -581,7 +721,10 @@ const CHECK_SVG = `<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><poly
 const CHECK_SVG_LG = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9.5 10,2.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 function getStorage() { try { return JSON.parse(localStorage.getItem('_30dc_pub') || '{}'); } catch(e) { return {}; } }
-function setStorage(d) { try { localStorage.setItem('_30dc_pub', JSON.stringify(d)); } catch(e) {} }
+let currentUserId = null;
+function storageKey() { return currentUserId ? `_30dc_${currentUserId}` : '_30dc_pub'; }
+function getStorage() { try { return JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch(e) { return {}; } }
+function setStorage(d) { try { localStorage.setItem(storageKey(), JSON.stringify(d)); } catch(e) {} }
 function save() { setStorage({ habits, checked, notes, startDate: startDate ? startDate.toISOString() : null, challengeTitle, userName }); }
 
 function initSetupForm() {
@@ -999,13 +1142,70 @@ function submitFeedback() {
 }
 
 function init() {
-  const s=getStorage();
-  if(s.habits&&s.habits.length>=2&&s.startDate){
-    habits=s.habits; checked=s.checked||{}; notes=s.notes||{}; startDate=new Date(s.startDate);
-    challengeTitle=s.challengeTitle||'30-Day Challenge'; userName=s.userName||'';
+  const s = getStorage();
+  if (s.habits && s.habits.length >= 2 && s.startDate) {
+    habits = s.habits; checked = s.checked || {}; notes = s.notes || {};
+    startDate = new Date(s.startDate);
+    challengeTitle = s.challengeTitle || '30-Day Challenge';
+    userName = s.userName || '';
     launchApp();
-  } else { initSetupForm(); document.getElementById('setupScreen').style.display='block'; }
+  } else {
+    initSetupForm();
+    document.getElementById('setupScreen').style.display = 'block';
+  }
 }
+
+/* ── AUTH ── */
+function updateUserChip(user) {
+  const initial = document.getElementById('userInitial');
+  const nameEl = document.getElementById('userDisplayName');
+  if (initial) {
+    if (user.photoURL) {
+      initial.outerHTML = `<img class="user-avatar" id="userInitial" src="${user.photoURL}" alt="" />`;
+    } else {
+      initial.textContent = (user.displayName || user.email || '?')[0].toUpperCase();
+    }
+  }
+  if (nameEl) nameEl.textContent = user.displayName ? user.displayName.split(' ')[0] : user.email;
+}
+
+function handleSignIn() {
+  if (!window._fbSignIn) { alert('Auth not ready yet — please wait a moment.'); return; }
+  window._fbSignIn().catch(err => alert('Sign-in failed. Please try again.'));
+}
+
+function handleSignOut() {
+  if (!confirm('Sign out? Your data stays saved on this device.')) return;
+  if (window._fbSignOut) window._fbSignOut();
+}
+
+function bootApp() {
+  if (!window._fbOnAuthStateChanged) { setTimeout(bootApp, 200); return; }
+  window._fbOnAuthStateChanged(user => {
+    document.getElementById('authLoading').style.display = 'none';
+    if (user) {
+      currentUserId = user.uid;
+      document.getElementById('authGate').style.display = 'none';
+      updateUserChip(user);
+      // Pre-fill name from Google profile if setup is fresh
+      const setupNameEl = document.getElementById('setupName');
+      if (setupNameEl && !setupNameEl.value && user.displayName) {
+        setupNameEl.value = user.displayName.split(' ')[0];
+      }
+      init();
+    } else {
+      currentUserId = null;
+      document.getElementById('authGate').style.display = 'flex';
+      document.getElementById('setupScreen').style.display = 'none';
+      document.getElementById('mainApp').style.display = 'none';
+    }
+  });
+}
+
+// Hide screens while auth resolves
+document.getElementById('setupScreen').style.display = 'none';
+document.getElementById('mainApp').style.display = 'none';
+bootApp();
 
 function toggleNote(day, p) {
   const toggle = document.getElementById(`nt-toggle-${day}-${p}`);
