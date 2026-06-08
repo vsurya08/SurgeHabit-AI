@@ -891,11 +891,12 @@ async function suggestHabits(force) {
       row.className = 'setup-habit-row';
       row.innerHTML = `
         <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
-        <span class="setup-habit-icon">${SETUP_DEFAULTS[i].icon}</span>
+        <span class="setup-habit-icon" id="sicon${i}">${SETUP_DEFAULTS[i].icon}</span>
         <input class="setup-habit-name" id="shn${i}" type="text" placeholder="Habit name…" maxlength="40" />
         <input class="setup-habit-short" id="shs${i}" type="text" placeholder="Short label" maxlength="20" />
         <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />`;
       container.appendChild(row);
+      wireIconSuggestion(`shn${i}`, `sicon${i}`);
     }
 
     spinner.classList.remove('active');
@@ -950,8 +951,15 @@ function confirmReset() {
   document.getElementById('setupScreen').style.display = 'block';
   initSetupForm();
   habits.forEach((h,i) => {
-    const n = document.getElementById('shn'+i), s = document.getElementById('shs'+i), t = document.getElementById('sht'+i);
-    if (n) n.value = h.name; if (s) s.value = h.short; if (t) t.value = h.time || '';
+    const n = document.getElementById('shn'+i);
+    const s = document.getElementById('shs'+i);
+    const t = document.getElementById('sht'+i);
+    const icon = document.getElementById('sicon'+i);
+    if (n) n.value = h.name;
+    if (s) s.value = h.short;
+    if (t) t.value = h.time || '';
+    // Restore the saved icon — don't use the default placeholder
+    if (icon && h.icon) icon.textContent = h.icon;
   });
   if (startDate) document.getElementById('setupDate').value = startDate.toISOString().slice(0,10);
   document.getElementById('setupTitle').value = challengeTitle;
