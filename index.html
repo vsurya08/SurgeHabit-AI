@@ -797,17 +797,23 @@ const iconDebounceTimers = {};
 function wireIconSuggestion(inputId, iconSpanId) {
   const input = document.getElementById(inputId);
   if (!input) return;
+  // Fire immediately if already has a value (e.g. pre-filled on confirmReset)
+  if (input.value.trim().length >= 2) {
+    suggestIcon(input.value.trim(), iconSpanId);
+  }
   input.addEventListener('blur', () => {
     clearTimeout(iconDebounceTimers[inputId]);
     const name = input.value.trim();
     if (!name || name.length < 2) return;
-    suggestIcon(name, iconSpanId);
+    iconDebounceTimers[inputId] = setTimeout(() => suggestIcon(name, iconSpanId), 100);
   });
 }
 
 async function suggestIcon(habitName, iconSpanId) {
   const span = document.getElementById(iconSpanId);
   if (!span) return;
+  // Mark as loading
+  span.dataset.loading = '1';
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -815,19 +821,26 @@ async function suggestIcon(habitName, iconSpanId) {
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 100,
-        system: `You pick the single most fitting emoji for a habit name. Respond with ONLY the emoji character — nothing else, no punctuation, no explanation. Pick something specific and visual, not generic. Examples: "Exercise" → 💪, "Read" → 📚, "Meditate" → 🧘, "Water intake" → 💧, "Sleep early" → 🌙, "Journal" → ✍️, "Walk 10k steps" → 🚶, "No sugar" → 🚫🍬 (pick just one), "Cold shower" → 🚿`,
+        system: `You pick the single most fitting emoji for a habit name. Respond with ONLY the emoji character — nothing else, no punctuation, no explanation. Pick something specific and visual, not generic. Examples: "Exercise" → 💪, "Read" → 📚, "Meditate" → 🧘, "Water intake" → 💧, "Sleep early" → 🌙, "Journal" → ✍️, "Walk 10k steps" → 🚶, "No sugar" → 🚫, "Cold shower" → 🚿, "Running" → 🏃, "Yoga" → 🧘, "Coding" → 💻, "Drawing" → 🎨`,
         messages: [{ role: 'user', content: habitName }]
       })
     });
     const data = await res.json();
     const emoji = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim().slice(0, 4);
-    if (emoji && span) {
-      span.textContent = emoji;
-      span.style.transform = 'scale(1.3)';
-      span.style.transition = 'transform 0.2s';
-      setTimeout(() => { span.style.transform = 'scale(1)'; }, 200);
+    if (emoji) {
+      const freshSpan = document.getElementById(iconSpanId);
+      if (freshSpan) {
+        freshSpan.textContent = emoji;
+        freshSpan.style.transform = 'scale(1.3)';
+        freshSpan.style.transition = 'transform 0.2s';
+        setTimeout(() => { freshSpan.style.transform = 'scale(1)'; }, 200);
+      }
     }
-  } catch(e) { /* silently fail — keep existing icon */ }
+  } catch(e) { /* silently keep existing icon */ }
+  finally {
+    const freshSpan = document.getElementById(iconSpanId);
+    if (freshSpan) delete freshSpan.dataset.loading;
+  }
 }
 let suggestDebounce = null;
 let lastSuggestedTitle = '';
@@ -911,11 +924,19 @@ async function suggestHabits(force) {
   }
 }
 
-function startChallenge() {
+async function startChallenge() {
   const nameVal = document.getElementById('setupName').value.trim();
   const titleVal = document.getElementById('setupTitle').value.trim();
   const dateVal = document.getElementById('setupDate').value;
   if (!dateVal) { alert('Please pick a start date.'); return; }
+
+  // Wait briefly for any in-flight icon suggestions to complete
+  const hasLoadingIcons = Array.from({length:6}, (_,i) => document.getElementById('sicon'+i))
+    .some(el => el && el.dataset.loading);
+  if (hasLoadingIcons) {
+    await new Promise(r => setTimeout(r, 1200));
+  }
+
   const newHabits = [];
   for (let i = 0; i < 6; i++) {
     const name = document.getElementById('shn'+i).value.trim();
