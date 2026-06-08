@@ -13,11 +13,6 @@
   
   // 1. Initial configuration
   gtag('config', 'G-XFM2N41V23');
-
-  // 2. Fire the login event to track authenticated users
-  gtag('event', 'login', {
-    'method': 'Google'
-  });
 </script>
 <!-- Firebase -->
 <script type="module">
@@ -36,18 +31,43 @@
     appId: "1:804090806521:web:a841210037cbd36b05e228",
     measurementId: "G-XFM2N41V23"
   };
-
+  const gtag = window.gtag || function(){};
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-  // Expose to global scope
-  window._fbAuth = auth;
-  window._fbProvider = provider;
-  window._fbSignIn = () => signInWithPopup(auth, provider);
-  window._fbSignOut = () => signOut(auth);
-  window._fbOnAuthStateChanged = (cb) => onAuthStateChanged(auth, cb);
+// Expose to global scope
+window._fbAuth = auth;
+window._fbProvider = provider;
+
+// 1. Updated Sign In with GA4 Tracking
+window._fbSignIn = () => {
+  return signInWithPopup(auth, provider)
+    .then((result) => {
+      const user = result.user;
+      
+      // Send User-ID and login event to GA4
+      gtag('config', 'G-XFM2N41V23', { 'user_id': user.uid });
+      gtag('event', 'login', { 'method': 'Google' });
+      
+      return result; // Passes the result down to any other listeners
+    });
+};
+
+window._fbSignOut = () => signOut(auth);
+
+// 2. Updated Auth State Change with GA4 Tracking (For automatic login)
+window._fbOnAuthStateChanged = (cb) => {
+  return onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // Set User-ID on page load if user is already authenticated
+      gtag('config', 'G-XFM2N41V23', { 'user_id': user.uid });
+    }
+    cb(user); // Triggers your original app callback function safely
+  });
+};
+
 
   // Firestore helpers
   window._fbSave = async (uid, data) => {
