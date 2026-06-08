@@ -776,11 +776,14 @@ function initSetupForm() {
   document.getElementById('setupHabits').innerHTML = SETUP_DEFAULTS.map((h,i) => `
     <div class="setup-habit-row">
       <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
-      <span class="setup-habit-icon">${h.icon}</span>
+      <span class="setup-habit-icon" id="sicon${i}">${h.icon}</span>
       <input class="setup-habit-name" id="shn${i}" type="text" placeholder="Habit name…" maxlength="40" />
       <input class="setup-habit-short" id="shs${i}" type="text" placeholder="Short label" maxlength="20" />
       <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />
     </div>`).join('');
+
+  // Wire icon suggestions for each row
+  SETUP_DEFAULTS.forEach((_, i) => wireIconSuggestion(`shn${i}`, `sicon${i}`));
 
   // Wire up title input to suggest habits on blur (when user leaves the field)
   const titleInput = document.getElementById('setupTitle');
@@ -788,7 +791,44 @@ function initSetupForm() {
   titleInput.addEventListener('blur', onTitleBlur);
 }
 
-/* ── HABIT SUGGESTIONS ── */
+/* ── DYNAMIC ICON SUGGESTION ── */
+const iconDebounceTimers = {};
+
+function wireIconSuggestion(inputId, iconSpanId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.addEventListener('blur', () => {
+    clearTimeout(iconDebounceTimers[inputId]);
+    const name = input.value.trim();
+    if (!name || name.length < 2) return;
+    suggestIcon(name, iconSpanId);
+  });
+}
+
+async function suggestIcon(habitName, iconSpanId) {
+  const span = document.getElementById(iconSpanId);
+  if (!span) return;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 100,
+        system: `You pick the single most fitting emoji for a habit name. Respond with ONLY the emoji character — nothing else, no punctuation, no explanation. Pick something specific and visual, not generic. Examples: "Exercise" → 💪, "Read" → 📚, "Meditate" → 🧘, "Water intake" → 💧, "Sleep early" → 🌙, "Journal" → ✍️, "Walk 10k steps" → 🚶, "No sugar" → 🚫🍬 (pick just one), "Cold shower" → 🚿`,
+        messages: [{ role: 'user', content: habitName }]
+      })
+    });
+    const data = await res.json();
+    const emoji = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim().slice(0, 4);
+    if (emoji && span) {
+      span.textContent = emoji;
+      span.style.transform = 'scale(1.3)';
+      span.style.transition = 'transform 0.2s';
+      setTimeout(() => { span.style.transform = 'scale(1)'; }, 200);
+    }
+  } catch(e) { /* silently fail — keep existing icon */ }
+}
 let suggestDebounce = null;
 let lastSuggestedTitle = '';
 
@@ -836,11 +876,14 @@ async function suggestHabits(force) {
     container.innerHTML = suggestions.map((h, i) => `
       <div class="setup-habit-row suggested" style="animation-delay:${i * 0.06}s">
         <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
-        <span class="setup-habit-icon">${h.icon}</span>
+        <span class="setup-habit-icon" id="sicon${i}">${h.icon}</span>
         <input class="setup-habit-name" id="shn${i}" type="text" value="${h.name.replace(/"/g,'&quot;')}" maxlength="40" />
         <input class="setup-habit-short" id="shs${i}" type="text" value="${h.short.replace(/"/g,'&quot;')}" maxlength="20" />
         <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />
       </div>`).join('');
+
+    // Wire icon suggestions on suggested rows too
+    suggestions.forEach((_, i) => wireIconSuggestion(`shn${i}`, `sicon${i}`));
 
     // Pad to 6 if fewer returned
     for (let i = suggestions.length; i < 6; i++) {
@@ -877,7 +920,9 @@ function startChallenge() {
     const name = document.getElementById('shn'+i).value.trim();
     const short = document.getElementById('shs'+i).value.trim();
     const time = document.getElementById('sht'+i) ? document.getElementById('sht'+i).value : '';
-    if (name) newHabits.push({ name, short: short || name, icon: SETUP_DEFAULTS[i].icon, time });
+    const iconEl = document.getElementById('sicon'+i);
+    const icon = iconEl ? iconEl.textContent.trim() : SETUP_DEFAULTS[i].icon;
+    if (name) newHabits.push({ name, short: short || name, icon, time });
   }
   if (newHabits.length < 2) { alert('Please add at least 2 habits to get started.'); return; }
   userName = nameVal;
@@ -972,6 +1017,7 @@ function renderSettingsRows() {
   container.innerHTML = habits.map((h,i) => `
     <div class="setting-row">
       <div class="setting-swatch" style="background:${COLOR_VARS[i]}"></div>
+      <span style="font-size:18px;cursor:default" id="hicon${i}">${h.icon}</span>
       <input type="text" id="hn${i}" value="${h.name.replace(/"/g,'&quot;')}" placeholder="Habit name" />
       <input type="text" id="h${i}" value="${h.short.replace(/"/g,'&quot;')}" placeholder="Short label" />
       <button class="delete-habit-btn" onclick="deleteHabit(${i})" title="Delete">×</button>
@@ -980,6 +1026,8 @@ function renderSettingsRows() {
   if (hd) hd.textContent = `Your ${habits.length} habit${habits.length!==1?'s':''}`;
   const ab = document.getElementById('addHabitBtn');
   if (ab) ab.style.display = habits.length >= 6 ? 'none' : 'flex';
+  // Wire icon suggestion on name inputs in settings
+  habits.forEach((_, i) => wireIconSuggestion(`hn${i}`, `hicon${i}`));
 }
 
 function addHabit() {
@@ -993,8 +1041,10 @@ function addHabit() {
 function saveHabits() {
   habits.forEach((h,i) => {
     const n=document.getElementById('hn'+i), s=document.getElementById('h'+i);
+    const iconEl=document.getElementById('hicon'+i);
     if(n&&n.value.trim()) h.name=n.value.trim();
     if(s&&s.value.trim()) h.short=s.value.trim();
+    if(iconEl&&iconEl.textContent.trim()) h.icon=iconEl.textContent.trim();
   });
   save(); render(); toggleSettings();
 }
@@ -1110,23 +1160,35 @@ function renderStats() {
 function render() { renderPillars(); renderSettingsRows(); renderCalendar(); renderStats(); }
 
 async function loadDailyQuote() {
-  const today=new Date().toISOString().slice(0,10), cacheKey='_30dc_pub_q_'+today;
-  try { const c=localStorage.getItem(cacheKey); if(c){renderQuote(JSON.parse(c));return;} } catch(e){}
-  const habitNames=habits.map(h=>h.name).join(', ');
-  const nameClause=userName?`The user's name is ${userName}.`:'';
+  const today = new Date().toISOString().slice(0, 10);
+  // Cache key includes user ID so each user gets their own quote
+  const cacheKey = `_30dc_q_${currentUserId || 'anon'}_${today}`;
+  try { const c = localStorage.getItem(cacheKey); if(c) { renderQuote(JSON.parse(c)); return; } } catch(e) {}
+
+  const habitNames = habits.map(h => h.name).join(', ');
+  const nameClause = userName ? `The user's name is ${userName}.` : '';
+  const dayNum = Math.min(currentDay(), 30);
+  const tones = ['pragmatic and direct','poetic and reflective','bold and energetic','warm and encouraging','wry and honest'];
+  const tone = tones[new Date().getDay() % tones.length];
+
   try {
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      model:'claude-sonnet-4-20250514',max_tokens:1000,
-      system:`You generate a short motivational quote for someone doing a 30-day challenge. ${nameClause} Their habits are: ${habitNames}. Respond ONLY with valid JSON — no markdown. Format: {"quote":"...","author":"..."}. If original, set author to "for your 30-day journey". Keep under 20 words. Grounded, specific, avoid clichés.`,
-      messages:[{role:'user',content:`Generate a motivational quote for ${today}. Vary tone. JSON only.`}]
-    })});
-    const data=await res.json();
-    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    const parsed=JSON.parse(text.trim());
-    try{localStorage.setItem(cacheKey,JSON.stringify(parsed));}catch(e){}
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You generate a unique daily motivational quote for someone on a 30-day habit challenge. ${nameClause} Their habits are: ${habitNames}. Today is day ${dayNum} of 30. Tone for today: ${tone}. RULES: Respond ONLY with valid JSON — no markdown. Format: {"quote":"...","author":"..."}. If original set author to "Day ${dayNum} · for your journey". Under 20 words. Reference a specific habit or the day number if possible. Never use these overused phrases: "every step", "journey of", "one day at a time", "believe in yourself", "you got this". Be specific and unexpected.`,
+        messages: [{ role: 'user', content: `Unique quote for day ${dayNum} of this challenge, date ${today}. JSON only.` }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
+    const parsed = JSON.parse(text.trim());
+    try { localStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch(e) {}
     renderQuote(parsed);
   } catch(e) {
-    document.getElementById('quoteBlock').innerHTML=`<div class="quote-text">Every day you show up is a day you're winning.</div><div class="quote-meta">for your 30-day journey</div>`;
+    document.getElementById('quoteBlock').innerHTML = `<div class="quote-text">Day ${dayNum} of 30. Show up.</div><div class="quote-meta">for your journey</div>`;
   }
 }
 
