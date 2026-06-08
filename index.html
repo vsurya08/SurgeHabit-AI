@@ -10,7 +10,14 @@
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
+  
+  // 1. Initial configuration
   gtag('config', 'G-XFM2N41V23');
+
+  // 2. Fire the login event to track authenticated users
+  gtag('event', 'login', {
+    'method': 'Google'
+  });
 </script>
 <!-- Firebase -->
 <script type="module">
