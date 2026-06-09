@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>30-Day Challenge</title>
 <!-- Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XFM2N41V23"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-K1R1KM2W9N"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-  
-  // 1. Initial configuration
-  gtag('config', 'G-XFM2N41V23');
+  gtag('config', 'G-K1R1KM2W9N');
 </script>
 <!-- Firebase -->
 <script type="module">
@@ -31,43 +29,18 @@
     appId: "1:804090806521:web:a841210037cbd36b05e228",
     measurementId: "G-XFM2N41V23"
   };
-  const gtag = window.gtag || function(){};
+
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
   const provider = new GoogleAuthProvider();
 
-// Expose to global scope
-window._fbAuth = auth;
-window._fbProvider = provider;
-
-// 1. Updated Sign In with GA4 Tracking
-window._fbSignIn = () => {
-  return signInWithPopup(auth, provider)
-    .then((result) => {
-      const user = result.user;
-      
-      // Send User-ID and login event to GA4
-      gtag('config', 'G-XFM2N41V23', { 'user_id': user.uid });
-      gtag('event', 'login', { 'method': 'Google' });
-      
-      return result; // Passes the result down to any other listeners
-    });
-};
-
-window._fbSignOut = () => signOut(auth);
-
-// 2. Updated Auth State Change with GA4 Tracking (For automatic login)
-window._fbOnAuthStateChanged = (cb) => {
-  return onAuthStateChanged(auth, (user) => {
-    if (user) {
-      // Set User-ID on page load if user is already authenticated
-      gtag('config', 'G-XFM2N41V23', { 'user_id': user.uid });
-    }
-    cb(user); // Triggers your original app callback function safely
-  });
-};
-
+  // Expose to global scope
+  window._fbAuth = auth;
+  window._fbProvider = provider;
+  window._fbSignIn = () => signInWithPopup(auth, provider);
+  window._fbSignOut = () => signOut(auth);
+  window._fbOnAuthStateChanged = (cb) => onAuthStateChanged(auth, cb);
 
   // Firestore helpers
   window._fbSave = async (uid, data) => {
@@ -809,8 +782,8 @@ function initSetupForm() {
       <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />
     </div>`).join('');
 
-  // Wire icon suggestions for each row
-  SETUP_DEFAULTS.forEach((_, i) => wireIconSuggestion(`shn${i}`, `sicon${i}`));
+  // Use full icon suggestion on blank rows (no original name to compare)
+  SETUP_DEFAULTS.forEach((h, i) => wireIconSuggestion(`shn${i}`, `sicon${i}`));
 
   // Wire up title input to suggest habits on blur (when user leaves the field)
   const titleInput = document.getElementById('setupTitle');
@@ -821,34 +794,79 @@ function initSetupForm() {
 /* ── DYNAMIC ICON SUGGESTION ── */
 const iconDebounceTimers = {};
 
+// Called on setup rows after AI suggestion — stores the original icon for comparison
+function wireIconRelevanceCheck(inputId, iconSpanId, originalIcon) {
+  const input = document.getElementById(inputId);
+  const span = document.getElementById(iconSpanId);
+  if (!input || !span) return;
+  // Store the original name so we can detect meaningful edits
+  input.dataset.originalName = input.value.trim();
+  input.addEventListener('blur', () => {
+    const newName = input.value.trim();
+    const oldName = input.dataset.originalName || '';
+    if (!newName || newName.length < 2) return;
+    // Only call API if name has changed meaningfully (not just whitespace/capitalisation)
+    if (newName.toLowerCase() === oldName.toLowerCase()) return;
+    checkIconRelevance(newName, oldName, span.textContent.trim(), iconSpanId);
+    input.dataset.originalName = newName;
+  });
+}
+
+// Called on blank setup rows and settings panel — suggests icon for new habit name
 function wireIconSuggestion(inputId, iconSpanId) {
   const input = document.getElementById(inputId);
   if (!input) return;
-  // Fire immediately if already has a value (e.g. pre-filled on confirmReset)
   if (input.value.trim().length >= 2) {
     suggestIcon(input.value.trim(), iconSpanId);
   }
   input.addEventListener('blur', () => {
-    clearTimeout(iconDebounceTimers[inputId]);
     const name = input.value.trim();
     if (!name || name.length < 2) return;
+    clearTimeout(iconDebounceTimers[inputId]);
     iconDebounceTimers[inputId] = setTimeout(() => suggestIcon(name, iconSpanId), 100);
   });
 }
 
-async function suggestIcon(habitName, iconSpanId) {
-  const span = document.getElementById(iconSpanId);
-  if (!span) return;
-  // Mark as loading
-  span.dataset.loading = '1';
+// Checks if current icon is still relevant — only updates if meaningfully different
+async function checkIconRelevance(newName, oldName, currentIcon, iconSpanId) {
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 100,
-        system: `You pick the single most fitting emoji for a habit name. Respond with ONLY the emoji character — nothing else, no punctuation, no explanation. Pick something specific and visual, not generic. Examples: "Exercise" → 💪, "Read" → 📚, "Meditate" → 🧘, "Water intake" → 💧, "Sleep early" → 🌙, "Journal" → ✍️, "Walk 10k steps" → 🚶, "No sugar" → 🚫, "Cold shower" → 🚿, "Running" → 🏃, "Yoga" → 🧘, "Coding" → 💻, "Drawing" → 🎨`,
+        model: 'claude-sonnet-4-5',
+        max_tokens: 50,
+        system: `You check if an emoji icon is still relevant after a habit name change. If the current icon still fits the new name reasonably well, respond with just the current icon. If a different emoji would be significantly more fitting, respond with that better emoji. Respond with ONLY a single emoji — nothing else.`,
+        messages: [{ role: 'user', content: `Old name: "${oldName}", New name: "${newName}", Current icon: ${currentIcon}. Return the best emoji.` }]
+      })
+    });
+    const data = await res.json();
+    const emoji = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim().slice(0, 4);
+    if (emoji && emoji !== currentIcon) {
+      const span = document.getElementById(iconSpanId);
+      if (span) {
+        span.textContent = emoji;
+        span.style.transform = 'scale(1.3)';
+        span.style.transition = 'transform 0.2s';
+        setTimeout(() => { span.style.transform = 'scale(1)'; }, 200);
+      }
+    }
+  } catch(e) { /* silently keep existing icon */ }
+}
+
+// Suggests a fresh icon for a given habit name (used on blank rows and settings)
+async function suggestIcon(habitName, iconSpanId) {
+  const span = document.getElementById(iconSpanId);
+  if (!span) return;
+  span.dataset.loading = '1';
+  try {
+    const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 50,
+        system: `Pick the single most fitting emoji for a habit name. Respond with ONLY the emoji — nothing else. Be specific: "Exercise" → 💪, "Read" → 📚, "Meditate" → 🧘, "Water" → 💧, "Sleep" → 🌙, "Journal" → ✍️, "Walk" → 🚶, "Cold shower" → 🚿, "Running" → 🏃, "Coding" → 💻, "Drawing" → 🎨, "Guitar" → 🎸.`,
         messages: [{ role: 'user', content: habitName }]
       })
     });
@@ -896,13 +914,13 @@ async function suggestHabits(force) {
   container.querySelectorAll('.setup-habit-row').forEach(r => r.classList.add('loading'));
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-5',
         max_tokens: 1000,
-        system: `You suggest exactly 6 daily habits for a 30-day challenge. Respond ONLY with valid JSON — no markdown, no preamble. Format: {"habits": [{"name": "...", "short": "...", "icon": "..."}]}. Rules: name is 2-4 words max, short is the daily micro-action (5 words max), icon is a single relevant emoji. Make habits specific, actionable, and directly relevant to the challenge title. Vary the habits — don't repeat themes.`,
+        system: `You suggest exactly 6 daily habits for a 30-day challenge. Respond ONLY with valid JSON — no markdown, no preamble. Format: {"habits": [{"name": "...", "short": "...", "icon": "..."}]}. Rules: name is 2-4 words max, short is the daily micro-action (5 words max), icon is a single highly relevant emoji specific to the habit (e.g. 💪 for exercise, 📚 for reading, 💧 for water). Make habits specific, actionable, and directly relevant to the challenge title. Vary the habits — don't repeat themes.`,
         messages: [{ role: 'user', content: `Suggest 6 daily habits for a 30-day challenge called: "${title}". JSON only.` }]
       })
     });
@@ -912,7 +930,7 @@ async function suggestHabits(force) {
     const parsed = JSON.parse(text.trim());
     const suggestions = parsed.habits.slice(0, 6);
 
-    // Fill rows with staggered animation
+    // Fill rows — icons already come from the API, no separate icon calls needed
     container.innerHTML = suggestions.map((h, i) => `
       <div class="setup-habit-row suggested" style="animation-delay:${i * 0.06}s">
         <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
@@ -922,8 +940,8 @@ async function suggestHabits(force) {
         <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />
       </div>`).join('');
 
-    // Wire icon suggestions on suggested rows too
-    suggestions.forEach((_, i) => wireIconSuggestion(`shn${i}`, `sicon${i}`));
+    // Only wire icon relevance check for manual edits (not initial load)
+    suggestions.forEach((h, i) => wireIconRelevanceCheck(`shn${i}`, `sicon${i}`, h.icon));
 
     // Pad to 6 if fewer returned
     for (let i = suggestions.length; i < 6; i++) {
@@ -936,7 +954,7 @@ async function suggestHabits(force) {
         <input class="setup-habit-short" id="shs${i}" type="text" placeholder="Short label" maxlength="20" />
         <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />`;
       container.appendChild(row);
-      wireIconSuggestion(`shn${i}`, `sicon${i}`);
+      wireIconRelevanceCheck(`shn${i}`, `sicon${i}`, SETUP_DEFAULTS[i].icon);
     }
 
     spinner.classList.remove('active');
@@ -1082,8 +1100,8 @@ function renderSettingsRows() {
   if (hd) hd.textContent = `Your ${habits.length} habit${habits.length!==1?'s':''}`;
   const ab = document.getElementById('addHabitBtn');
   if (ab) ab.style.display = habits.length >= 6 ? 'none' : 'flex';
-  // Wire icon suggestion on name inputs in settings
-  habits.forEach((_, i) => wireIconSuggestion(`hn${i}`, `hicon${i}`));
+  // Wire relevance check on name inputs — only updates icon if name changes significantly
+  habits.forEach((h, i) => wireIconRelevanceCheck(`hn${i}`, `hicon${i}`, h.icon));
 }
 
 function addHabit() {
@@ -1215,43 +1233,29 @@ function renderStats() {
 
 function render() { renderPillars(); renderSettingsRows(); renderCalendar(); renderStats(); }
 
-async function loadDailyQuote() {
-  const today = new Date().toISOString().slice(0, 10);
-  // Cache key includes user ID so each user gets their own quote
-  const cacheKey = `_30dc_q_${currentUserId || 'anon'}_${today}`;
-  try { const c = localStorage.getItem(cacheKey); if(c) { renderQuote(JSON.parse(c)); return; } } catch(e) {}
+const QUOTE_LIBRARY = {"Morning Routine":[{"day":1,"quote":"Your morning sets the tune. Start deliberate, not desperate."},{"day":2,"quote":"Dawn doesn't apologize for arriving. Neither should your ambition."},{"day":3,"quote":"Win the first hour. The rest follows easier than you think."},{"day":4,"quote":"Morning light finds those who rise to meet it halfway."},{"day":5,"quote":"Snooze buttons are practice for quitting. Hit the floor instead."},{"day":6,"quote":"Build your morning fortress. The day's chaos can wait outside."},{"day":7,"quote":"One week in. Your future self is already grateful."},{"day":8,"quote":"Tired is temporary. Momentum compounds daily."},{"day":9,"quote":"The bed will always feel warmer than your goals. Choose anyway."},{"day":10,"quote":"Discipline whispers. Regret screams. Listen to the quiet one."},{"day":11,"quote":"Morning stillness holds answers the afternoon never reveals."},{"day":12,"quote":"Your routine isn't perfect. It's just supposed to be yours."},{"day":13,"quote":"Two weeks strong. Habits form in the unglamorous middle."},{"day":14,"quote":"Rise like you mean it. Every single unremarkable morning."},{"day":15,"quote":"Halfway there. The finish line is watching you climb."},{"day":16,"quote":"Consistency is boring. So is staying exactly where you are."},{"day":17,"quote":"Dawn asks nothing but presence. Give it that much."},{"day":18,"quote":"The hardest mornings build the strongest foundations."},{"day":19,"quote":"Three weeks. You're not the same person who started this."},{"day":20,"quote":"Momentum doesn't care about motivation. It just shows up."},{"day":21,"quote":"Twenty-one mornings conquered. The pattern is now your power."},{"day":22,"quote":"Final stretch. Finish like someone who never considered stopping."},{"day":23,"quote":"Morning victories compound into lifetime advantages."},{"day":24,"quote":"Six days left. Push when coasting feels easier."},{"day":25,"quote":"You've proven you can start. Now prove you finish strong."},{"day":26,"quote":"Dawn has met you faithfully. Return the loyalty."},{"day":27,"quote":"Three mornings separate dreaming from doing. Stay the course."},{"day":28,"quote":"Almost home. Champions finish what beginners start excited about."},{"day":29,"quote":"Tomorrow's the last first morning. Make today count double."},{"day":30,"quote":"Thirty mornings owned. You built this. Now keep building."}],"Job Search":[{"day":1,"quote":"Your next role exists. Today, you start the path to find it."},{"day":2,"quote":"Each application is a seed planted. Not all will grow, but some will flourish."},{"day":3,"quote":"Rejections aren't closed doors\u2014they're redirections to better fits."},{"day":4,"quote":"Update that resume. Your story deserves its sharpest telling."},{"day":5,"quote":"Network like you're collecting allies, not favors. Genuine connections compound."},{"day":6,"quote":"Research the companies you want, not just the jobs they're posting."},{"day":7,"quote":"One week in. Momentum builds from showing up, not feeling ready."},{"day":8,"quote":"The silence after applying doesn't mean no. It means wait and keep moving."},{"day":9,"quote":"Tailor your cover letter. Generic applications get generic results."},{"day":10,"quote":"Your LinkedIn profile is your storefront. Make strangers want to know more."},{"day":11,"quote":"Interview prep today prevents panic tomorrow. Practice your stories now."},{"day":12,"quote":"Not every job will spark joy. Apply anyway\u2014options create negotiating power."},{"day":13,"quote":"Follow up on applications. Persistence signals interest, not desperation."},{"day":14,"quote":"Two weeks down. You're building skills in resilience, not just job hunting."},{"day":15,"quote":"The market doesn't owe you speed, but consistency will outlast the wait."},{"day":16,"quote":"Reach out to someone new today. Your next opportunity might know them."},{"day":17,"quote":"Refine your pitch. Explain what you do like you're fascinating, because you are."},{"day":18,"quote":"Some days require rest, not applications. Sustainability beats burnout every time."},{"day":19,"quote":"Track your applications. Data reveals patterns; patterns reveal better strategies."},{"day":20,"quote":"The right role requires the right timing. Your job is preparing for both."},{"day":21,"quote":"Three weeks in. You're closer than day one, even when it doesn't feel like it."},{"day":22,"quote":"Every interview is practice, even the ones that don't pan out."},{"day":23,"quote":"Ask better questions in interviews. You're evaluating them too."},{"day":24,"quote":"Negotiate when offered. Your worth isn't determined by their first number."},{"day":25,"quote":"Skills can be learned. Culture fit matters more than perfect qualifications."},{"day":26,"quote":"Trust your instincts during interviews. Red flags early save heartache later."},{"day":27,"quote":"You've sent dozens of applications. Only one needs to say yes."},{"day":28,"quote":"Review what worked, what didn't. Growth happens in the reflection."},{"day":29,"quote":"Tomorrow is day thirty. Whether you've landed a role or not, you've evolved."},{"day":30,"quote":"The search continues or concludes, but your effort has already transformed you."}],"Fitness":[{"day":1,"quote":"Your body is listening. Today, you tell it: we're starting something real."},{"day":2,"quote":"Soreness is your muscles learning a new language. Let them speak."},{"day":3,"quote":"Show up messy. Show up tired. Just show up."},{"day":4,"quote":"Four days in. You're already someone who doesn't quit on day three."},{"day":5,"quote":"The workout you dread today becomes the warmup you cruise through later."},{"day":6,"quote":"Strength isn't built in moments of comfort. You're right on schedule."},{"day":7,"quote":"One week down. You've just proven you can do hard things on purpose."},{"day":8,"quote":"Week two is where casual becomes committed. Keep moving."},{"day":9,"quote":"Your past self would be impressed. Your future self is counting on you."},{"day":10,"quote":"Discipline is choosing what you want most over what you want right now."},{"day":11,"quote":"Nobody feels motivated every day. You're here anyway. That's power."},{"day":12,"quote":"Rest is part of the work. Recovery builds the athlete."},{"day":13,"quote":"Halfway means you've already done what most people won't start."},{"day":14,"quote":"Two weeks of consistency is rewriting your body's default settings."},{"day":15,"quote":"The middle is messy. Champions train through it anyway."},{"day":16,"quote":"You're not the same person who started this. Feel the difference."},{"day":17,"quote":"Seventeen days of showing up is a conversation your body finally believes."},{"day":18,"quote":"Fatigue is temporary. The habit you're building is permanent infrastructure."},{"day":19,"quote":"Push a little harder today. Tomorrow-you will thank present-you."},{"day":20,"quote":"Twenty days means something. You've chosen yourself four hundred eighty hours straight."},{"day":21,"quote":"Three weeks. Your discipline now outweighs your excuses. Feel that shift."},{"day":22,"quote":"The final stretch separates those who finish from those who tried."},{"day":23,"quote":"You're too close to the end to let doubt narrate the story now."},{"day":24,"quote":"Legacy is built in these unglamorous final miles. Stay steady."},{"day":25,"quote":"Five days left. Your body knows how to finish what it started."},{"day":26,"quote":"The strength you need for these last days? You built it in the first twenty-five."},{"day":27,"quote":"Almost there isn't the same as there. Three more days of showing up matters."},{"day":28,"quote":"You're not just finishing. You're proving you're someone who finishes."},{"day":29,"quote":"Tomorrow is thirty. Today is the second-to-last time you prove your word means something."},{"day":30,"quote":"Thirty days complete. You didn't just survive the challenge. You became someone new."}],"Mindfulness":[{"day":1,"quote":"Notice one breath today. That's the whole practice."},{"day":2,"quote":"Your mind will wander\u2014that's not failure, that's the point."},{"day":3,"quote":"Presence isn't found; it's remembered in this exact moment."},{"day":4,"quote":"Three mindful breaths beat thirty distracted minutes every time."},{"day":5,"quote":"The gap between thoughts? That's where you live."},{"day":6,"quote":"Watch your resistance to now. It reveals everything."},{"day":7,"quote":"Week one done: you're training attention like a muscle."},{"day":8,"quote":"Boredom during practice means you're doing it right."},{"day":9,"quote":"Your breath is the only anchor you'll ever need."},{"day":10,"quote":"Notice the space between inhale and exhale\u2014everything happens there."},{"day":11,"quote":"Thoughts aren't problems. Believing every thought is."},{"day":12,"quote":"The mind screams loudest right before it quiets."},{"day":13,"quote":"You're not clearing your mind; you're watching it clear itself."},{"day":14,"quote":"Halfway means your awareness is already sharper than two weeks ago."},{"day":15,"quote":"Return to breath. Again. Again. This repetition is the transformation."},{"day":16,"quote":"Restlessness is just energy asking to be witnessed, not fixed."},{"day":17,"quote":"Each time you notice distraction, you're actually present."},{"day":18,"quote":"The quality of your attention determines the quality of your life."},{"day":19,"quote":"Stillness isn't empty\u2014it's full of everything you've been missing."},{"day":20,"quote":"Three weeks in: your nervous system is learning a new language."},{"day":21,"quote":"Past the halfway point, presence starts choosing you."},{"day":22,"quote":"Now you know: peace isn't out there, it's underneath everything."},{"day":23,"quote":"The practice feels different now because you are different now."},{"day":24,"quote":"Six more days of meeting yourself exactly as you are."},{"day":25,"quote":"Awareness grows in the dark. Trust what you can't yet see."},{"day":26,"quote":"You've built something real here\u2014a refuge inside your own attention."},{"day":27,"quote":"Almost there. Your baseline calm is not what it was."},{"day":28,"quote":"Two days left: notice how effortlessly you return to now."},{"day":29,"quote":"Tomorrow ends the challenge, but the awareness? That's permanent infrastructure."},{"day":30,"quote":"Thirty days complete. You didn't find mindfulness\u2014you became it."}],"Learning":[{"day":1,"quote":"Your brain rewires with every fact absorbed. Start feeding it today."},{"day":2,"quote":"Knowledge isn't inherited\u2014it's earned one curious question at a time."},{"day":3,"quote":"The gap between ignorance and insight closes with daily practice."},{"day":4,"quote":"What you learn today becomes who you are tomorrow."},{"day":5,"quote":"Confusion is just the sound of your brain making new connections."},{"day":6,"quote":"Every expert was once a beginner who refused to quit on day six."},{"day":7,"quote":"Seven days in. Your neurons are already forming highways."},{"day":8,"quote":"The middle is messy. That's where real learning happens."},{"day":9,"quote":"Frustration means you're stretching past what you already know."},{"day":10,"quote":"Double digits. You're building a library in your mind."},{"day":11,"quote":"Not every lesson lands instantly. Some simmer before they click."},{"day":12,"quote":"Boredom is your brain begging for the next level. Push deeper."},{"day":13,"quote":"Halfway means you've already proven you can. Keep proving it."},{"day":14,"quote":"Two weeks of feeding your mind\u2014it's hungry for more now."},{"day":15,"quote":"The plateau before the breakthrough tests who really wants it."},{"day":16,"quote":"What felt impossible on day one is Tuesday now."},{"day":17,"quote":"Learning curves bend for people who keep showing up."},{"day":18,"quote":"Your past self would be amazed. Your future self is waiting."},{"day":19,"quote":"Nineteen days of choosing growth over comfort. Feel that shift?"},{"day":20,"quote":"Mastery is made in the mundane middle. You're there now."},{"day":21,"quote":"Three weeks. The habit is forming. The knowledge is compounding."},{"day":22,"quote":"The final sprint begins with what you've already built."},{"day":23,"quote":"This close to thirty, quitting would be the costliest lesson."},{"day":24,"quote":"Your brain has been upgraded. Six days to seal it in."},{"day":25,"quote":"Five left. Finish what you started\u2014future you is counting on it."},{"day":26,"quote":"Every concept you've absorbed is a tool you'll carry forever."},{"day":27,"quote":"Twenty-seven days of intellectual courage. Don't stop building now."},{"day":28,"quote":"Two days remain. You've become someone who commits and completes."},{"day":29,"quote":"Tomorrow you finish. Today you prove consistency beats intensity."},{"day":30,"quote":"Thirty days. You didn't just learn\u2014you became a learner."}],"Nutrition":[{"day":1,"quote":"Your body is listening to every bite. Make today's conversation worth having."},{"day":2,"quote":"Nourishment isn't punishment. Feed yourself like someone you're responsible for keeping alive."},{"day":3,"quote":"Color on your plate means life in your cells. Paint something vibrant today."},{"day":4,"quote":"Every meal is a chance to feel different an hour from now. Choose wisely."},{"day":5,"quote":"Your energy tomorrow is being built by what you eat right now."},{"day":6,"quote":"Hunger is information, not an emergency. Listen before you answer."},{"day":7,"quote":"One week in. Your cells are already rebuilding with better materials."},{"day":8,"quote":"Cravings are loud, but they pass. Your commitment doesn't have to."},{"day":9,"quote":"The middle miles are where real change crystallizes. Keep walking."},{"day":10,"quote":"You're not depriving yourself. You're choosing yourself."},{"day":11,"quote":"Vegetables aren't the enemy. Feeling terrible after lunch is."},{"day":12,"quote":"Progress isn't linear, but it's cumulative. Today still counts."},{"day":13,"quote":"Your gut is throwing you a thank-you party. Can you feel it yet?"},{"day":14,"quote":"Halfway means you've already proven you can do this. Now prove it again."},{"day":15,"quote":"Real food doesn't need an ingredient list you can't pronounce."},{"day":16,"quote":"The scale doesn't measure clarity, energy, or how your jeans feel. Trust more than numbers."},{"day":17,"quote":"Consistency beats perfection. Especially on the boring days."},{"day":18,"quote":"Your afternoon slump isn't inevitable. Sometimes it's just yesterday's sugar talking."},{"day":19,"quote":"Twenty days of better choices means ten thousand better cells."},{"day":20,"quote":"You're past the point where quitting makes sense. Might as well see this through."},{"day":21,"quote":"Three weeks. Your taste buds have literally changed. Notice what tastes different now."},{"day":22,"quote":"The finish line is visible. Don't coast\u2014this is where transformation locks in."},{"day":23,"quote":"Every meal from here is building the version of you that continues after day thirty."},{"day":24,"quote":"Six days left. Make them your most intentional yet."},{"day":25,"quote":"You've eaten roughly seventy-five meals differently. That's not nothing\u2014that's everything."},{"day":26,"quote":"Strong finish, strong foundation. These final days matter most."},{"day":27,"quote":"Three days. Your body knows what you've done for it. Feel that gratitude."},{"day":28,"quote":"Almost there. The only way out is through the finish."},{"day":29,"quote":"Tomorrow is thirty. Today is the one that proves you don't need a challenge to choose well."},{"day":30,"quote":"Thirty days done. You didn't just change your diet\u2014you changed your relationship with food."}],"Productivity":[{"day":1,"quote":"Start before you're ready. Momentum builds from motion, not from perfect conditions."},{"day":2,"quote":"Two minutes of action beats two hours of planning. Begin now."},{"day":3,"quote":"Your future self is watching. Make them proud with what you do today."},{"day":4,"quote":"Energy follows attention. Point yours at what matters most this morning."},{"day":5,"quote":"The work expands to fill the time. Give it less time."},{"day":6,"quote":"Small wins compound. Stack another one today, no matter how tiny."},{"day":7,"quote":"You've built a week of proof. Your consistency is becoming your identity."},{"day":8,"quote":"Resistance is loudest right before the breakthrough. Keep pushing."},{"day":9,"quote":"Done badly today beats perfect tomorrow. Ship something imperfect."},{"day":10,"quote":"Fatigue is real, but so is your capability. You're stronger than you feel."},{"day":11,"quote":"The middle is where most quit. You're not most people."},{"day":12,"quote":"Distraction whispers; commitment roars. Choose the louder voice today."},{"day":13,"quote":"Progress isn't linear. Today's plateau prepares tomorrow's leap forward."},{"day":14,"quote":"Two weeks in. You're not trying anymore\u2014you're doing. Feel the difference."},{"day":15,"quote":"Momentum is your ally now. It carries you when willpower fades."},{"day":16,"quote":"The work doesn't care about your mood. Do it anyway; mood follows."},{"day":17,"quote":"You're past halfway. Finishing is now easier than quitting would be."},{"day":18,"quote":"Consistent beats intense. Your steady rhythm is reshaping your days."},{"day":19,"quote":"Let go of what you didn't do. Focus fiercely on what's next."},{"day":20,"quote":"Three weeks changes neural pathways. Your brain is rewiring itself through you."},{"day":21,"quote":"The final third begins. Everything you've built leads to this finish."},{"day":22,"quote":"Nine days left. Sprint speed, marathon wisdom. Pace yourself to the end."},{"day":23,"quote":"This is where character solidifies. Who you're becoming is almost complete."},{"day":24,"quote":"Your discipline has become quiet power. Notice how natural this feels now."},{"day":25,"quote":"Five days. The finish line is visible. Your consistency earned this view."},{"day":26,"quote":"Don't coast now. The strongest finish creates the deepest transformation."},{"day":27,"quote":"Three days of excellence left. Make them count more than the first three."},{"day":28,"quote":"Penultimate day. Tomorrow you'll miss the structure. Savor today's effort."},{"day":29,"quote":"Final push. Thirty days of choices have built the person completing this."},{"day":30,"quote":"You did it. Thirty days of proof that you're capable of anything."}]};
 
-  const habitNames = habits.map(h => h.name).join(', ');
-  const nameClause = userName ? `The user's name is ${userName}.` : '';
-  const dayNum = Math.min(currentDay(), 30);
-  const tones = ['pragmatic and direct','poetic and reflective','bold and energetic','warm and encouraging','wry and honest'];
-  const tone = tones[new Date().getDay() % tones.length];
-
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: `You generate a unique daily motivational quote for someone on a 30-day habit challenge. ${nameClause} Their habits are: ${habitNames}. Today is day ${dayNum} of 30. Tone for today: ${tone}. RULES: Respond ONLY with valid JSON — no markdown. Format: {"quote":"...","author":"..."}. If original set author to "Day ${dayNum} · for your journey". Under 20 words. Reference a specific habit or the day number if possible. Never use these overused phrases: "every step", "journey of", "one day at a time", "believe in yourself", "you got this". Be specific and unexpected.`,
-        messages: [{ role: 'user', content: `Unique quote for day ${dayNum} of this challenge, date ${today}. JSON only.` }]
-      })
-    });
-    const data = await res.json();
-    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
-    const parsed = JSON.parse(text.trim());
-    try { localStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch(e) {}
-    renderQuote(parsed);
-  } catch(e) {
-    document.getElementById('quoteBlock').innerHTML = `<div class="quote-text">Day ${dayNum} of 30. Show up.</div><div class="quote-meta">for your journey</div>`;
-  }
+/* ── QUOTE LIBRARY ── */
+function detectChallengeType(title, habitNames) {
+  const text = (title + ' ' + habitNames).toLowerCase();
+  if (/job|search|apply|application|career|interview|resume|linkedin|network/.test(text)) return 'Job Search';
+  if (/fitness|exercise|workout|run|gym|walk|strength|cardio|sport/.test(text)) return 'Fitness';
+  if (/mindful|meditat|stress|breath|calm|mental|anxiety|relax/.test(text)) return 'Mindfulness';
+  if (/learn|study|read|book|course|skill|code|language|practice/.test(text)) return 'Learning';
+  if (/nutrition|diet|eat|food|water|meal|health|sugar|calories/.test(text)) return 'Nutrition';
+  if (/product|focus|deep work|task|goal|plan|organis|priorit/.test(text)) return 'Productivity';
+  return 'Morning Routine'; // default
 }
 
-function renderQuote(q) {
-  const today=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-  const greeting=userName?`${userName} — `:'';
-  document.getElementById('quoteBlock').innerHTML=`<div class="quote-text">${greeting}"${q.quote}"</div><div class="quote-meta">${q.author} &nbsp;·&nbsp; ${today}</div>`;
+function loadDailyQuote() {
+  const dayNum = Math.max(1, Math.min(currentDay(), 30));
+  const challengeType = detectChallengeType(challengeTitle, habits.map(h => h.name).join(' '));
+  const quotes = QUOTE_LIBRARY[challengeType] || QUOTE_LIBRARY['Morning Routine'];
+  const q = quotes[dayNum - 1] || quotes[0];
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const greeting = userName ? `${userName} — ` : '';
+  const author = `Day ${dayNum} · ${challengeType}`;
+  document.getElementById('quoteBlock').innerHTML = `<div class="quote-text">${greeting}"${q.quote}"</div><div class="quote-meta">${author} &nbsp;·&nbsp; ${today}</div>`;
 }
 
 /* ── FEEDBACK ── */
