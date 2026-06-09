@@ -841,7 +841,7 @@ async function checkIconRelevance(newName, oldName, currentIcon, iconSpanId) {
       })
     });
     const data = await res.json();
-    const emoji = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim().slice(0, 4);
+    const emoji = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim().replace(/^```.*\n?/,'').replace(/\n?```$/,'').trim().slice(0, 4);
     if (emoji && emoji !== currentIcon) {
       const span = document.getElementById(iconSpanId);
       if (span) {
@@ -871,7 +871,7 @@ async function suggestIcon(habitName, iconSpanId) {
       })
     });
     const data = await res.json();
-    const emoji = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim().slice(0, 4);
+    const emoji = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim().replace(/^```.*\n?/,'').replace(/\n?```$/,'').trim().slice(0, 4);
     if (emoji) {
       const freshSpan = document.getElementById(iconSpanId);
       if (freshSpan) {
@@ -927,7 +927,8 @@ async function suggestHabits(force) {
 
     const data = await res.json();
     const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('');
-    const parsed = JSON.parse(text.trim());
+    const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+    const parsed = JSON.parse(cleaned);
     const suggestions = parsed.habits.slice(0, 6);
 
     // Fill rows — icons already come from the API, no separate icon calls needed
