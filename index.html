@@ -140,30 +140,22 @@
   .pillar.p6 { background: var(--c6-light); border-color: #7fd8ec; }
   .pillar.dragging { opacity: 0.4; transform: scale(0.97); }
   .pillar.drag-over { box-shadow: 0 0 0 2px var(--ink); transform: scale(1.02); }
-  .pillar-icon { font-size: clamp(16px, 2.5vw, 20px); margin-bottom: 6px; }
+  .pillar-icon { font-size: clamp(16px, 2.5vw, 20px); margin-bottom: 8px; }
   .pillar-name {
-    font-size: clamp(8px, 1.5vw, 10px);
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-weight: 500;
-    margin-bottom: 3px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .pillar.p1 .pillar-name { color: var(--c1); } .pillar.p2 .pillar-name { color: var(--c2); }
-  .pillar.p3 .pillar-name { color: var(--c3); } .pillar.p4 .pillar-name { color: var(--c4); }
-  .pillar.p5 .pillar-name { color: var(--c5); } .pillar.p6 .pillar-name { color: var(--c6); }
-  .pillar-habit {
-    font-size: clamp(10px, 1.8vw, 12px);
-    color: var(--ink);
-    font-weight: 400;
-    line-height: 1.35;
+    font-size: clamp(11px, 1.6vw, 13px);
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 8px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    letter-spacing: 0;
+    text-transform: none;
   }
+  .pillar.p1 .pillar-name { color: var(--c1); } .pillar.p2 .pillar-name { color: var(--c2); }
+  .pillar.p3 .pillar-name { color: var(--c3); } .pillar.p4 .pillar-name { color: var(--c4); }
+  .pillar.p5 .pillar-name { color: var(--c5); } .pillar.p6 .pillar-name { color: var(--c6); }
   .pillar-footer { margin-top: 8px; }
   .pillar-pct-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
   .pillar-pct { font-size: clamp(9px, 1.5vw, 11px); font-weight: 500; }
@@ -1142,7 +1134,6 @@ function renderPillars() {
     return `<div class="pillar ${COLORS[i]}" draggable="true" data-index="${i}">
       <div class="pillar-icon">${h.icon}</div>
       <div class="pillar-name">${h.name}</div>
-      <div class="pillar-habit">${h.short}</div>
       <div class="pillar-footer">
         <div class="pillar-pct-row"><span class="pillar-pct">${pct}%</span><span class="pillar-pct-lbl">${done}/30</span></div>
         <div class="pillar-bar-track"><div class="pillar-bar-fill" style="width:${pct}%"></div></div>
