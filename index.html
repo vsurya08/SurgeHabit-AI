@@ -127,10 +127,10 @@
   .prog-fill { height: 100%; background: var(--ink); border-radius: 3px; transition: width 0.4s cubic-bezier(0.4,0,0.2,1); }
 
   /* Pillars */
-  .pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 8px; }
+  .pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
   .pillars-hint { font-size: 11px; color: var(--muted); margin-bottom: 24px; display: flex; align-items: center; gap: 5px; }
   .pillars-hint svg { opacity: 0.5; flex-shrink: 0; }
-  .pillar { border-radius: 10px; padding: 14px 14px 12px; border: 1px solid transparent; cursor: grab; user-select: none; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; min-width: 0; }
+  .pillar { border-radius: 10px; padding: clamp(8px,2vw,14px); border: 1px solid transparent; cursor: grab; user-select: none; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; min-width: 0; }
   .pillar:active { cursor: grabbing; }
   .pillar.p1 { background: var(--c1-light); border-color: #b8d0ef; }
   .pillar.p2 { background: var(--c2-light); border-color: #a8ddc8; }
@@ -140,12 +140,12 @@
   .pillar.p6 { background: var(--c6-light); border-color: #7fd8ec; }
   .pillar.dragging { opacity: 0.4; transform: scale(0.97); }
   .pillar.drag-over { box-shadow: 0 0 0 2px var(--ink); transform: scale(1.02); }
-  .pillar-icon { font-size: clamp(16px, 2.5vw, 20px); margin-bottom: 8px; }
+  .pillar-icon { font-size: clamp(14px, 3vw, 20px); margin-bottom: 6px; }
   .pillar-name {
-    font-size: clamp(11px, 1.6vw, 13px);
+    font-size: clamp(10px, 2.2vw, 13px);
     font-weight: 600;
     line-height: 1.3;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -156,13 +156,13 @@
   .pillar.p1 .pillar-name { color: var(--c1); } .pillar.p2 .pillar-name { color: var(--c2); }
   .pillar.p3 .pillar-name { color: var(--c3); } .pillar.p4 .pillar-name { color: var(--c4); }
   .pillar.p5 .pillar-name { color: var(--c5); } .pillar.p6 .pillar-name { color: var(--c6); }
-  .pillar-footer { margin-top: 8px; }
-  .pillar-pct-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-  .pillar-pct { font-size: clamp(9px, 1.5vw, 11px); font-weight: 500; }
+  .pillar-footer { margin-top: 6px; }
+  .pillar-pct-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+  .pillar-pct { font-size: clamp(9px, 2vw, 11px); font-weight: 500; }
   .pillar.p1 .pillar-pct { color: var(--c1); } .pillar.p2 .pillar-pct { color: var(--c2); }
   .pillar.p3 .pillar-pct { color: var(--c3); } .pillar.p4 .pillar-pct { color: var(--c4); }
   .pillar.p5 .pillar-pct { color: var(--c5); } .pillar.p6 .pillar-pct { color: var(--c6); }
-  .pillar-pct-lbl { font-size: clamp(8px, 1.3vw, 10px); color: var(--muted); }
+  .pillar-pct-lbl { font-size: clamp(8px, 1.8vw, 10px); color: var(--muted); }
   .pillar-bar-track { height: 3px; border-radius: 3px; background: rgba(0,0,0,0.08); overflow: hidden; }
   .pillar-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s cubic-bezier(0.4,0,0.2,1); }
   .pillar.p1 .pillar-bar-fill { background: var(--c1); } .pillar.p2 .pillar-bar-fill { background: var(--c2); }
@@ -456,7 +456,6 @@
   .feedback-thanks h3 { font-family: 'DM Serif Display', serif; font-size: 20px; font-weight: 400; margin-bottom: 6px; }
   .feedback-thanks p { font-size: 13px; color: var(--muted); }
     .stats-bar { grid-template-columns: repeat(2, 1fr); }
-    .pillars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .day-grid { gap: 4px; } .day-card { padding: 7px 5px 6px; } .chk-lbl { max-width: 44px; }
     .setup-habit-short { display: none; }
     .setup-habit-time { display: none; }
@@ -666,7 +665,7 @@
     </div>
 
     <div class="setup-section">
-      <div class="setup-label">Your habits <span style="font-weight:400;text-transform:none;letter-spacing:0">(name + short label — add 2 to 6)</span></div>
+      <div class="setup-label">Your habits <span style="font-weight:400;text-transform:none;letter-spacing:0">(2–6 habits · keep names short, 2–3 words)</span></div>
       <div class="suggest-bar">
         <div class="suggest-status">
           <div class="suggest-spinner" id="suggestSpinner"></div>
@@ -858,7 +857,7 @@ function initSetupForm() {
     <div class="setup-habit-row">
       <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
       <span class="setup-habit-icon" id="sicon${i}">${h.icon}</span>
-      <input class="setup-habit-name" id="shn${i}" type="text" placeholder="Habit name…" maxlength="40" />
+      <input class="setup-habit-name" id="shn${i}" type="text" placeholder="Habit name…" maxlength="20" />
       <input class="setup-habit-short" id="shs${i}" type="text" placeholder="Short label" maxlength="20" />
       <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />
     </div>`).join('');
@@ -1017,7 +1016,7 @@ async function suggestHabits(force) {
       <div class="setup-habit-row suggested" style="animation-delay:${i * 0.06}s">
         <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
         <span class="setup-habit-icon" id="sicon${i}">${h.icon}</span>
-        <input class="setup-habit-name" id="shn${i}" type="text" value="${h.name.replace(/"/g,'&quot;')}" maxlength="40" />
+        <input class="setup-habit-name" id="shn${i}" type="text" value="${h.name.replace(/"/g,'&quot;')}" maxlength="20" />
         <input class="setup-habit-short" id="shs${i}" type="text" value="${h.short.replace(/"/g,'&quot;')}" maxlength="20" />
         <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />
       </div>`).join('');
@@ -1032,7 +1031,7 @@ async function suggestHabits(force) {
       row.innerHTML = `
         <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
         <span class="setup-habit-icon" id="sicon${i}">${SETUP_DEFAULTS[i].icon}</span>
-        <input class="setup-habit-name" id="shn${i}" type="text" placeholder="Habit name…" maxlength="40" />
+        <input class="setup-habit-name" id="shn${i}" type="text" placeholder="Habit name…" maxlength="20" />
         <input class="setup-habit-short" id="shs${i}" type="text" placeholder="Short label" maxlength="20" />
         <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />`;
       container.appendChild(row);
@@ -1182,7 +1181,7 @@ function renderSettingsRows() {
     <div class="setting-row">
       <div class="setting-swatch" style="background:${COLOR_VARS[i]}"></div>
       <span style="font-size:18px;cursor:default" id="hicon${i}">${h.icon}</span>
-      <input type="text" id="hn${i}" value="${h.name.replace(/"/g,'&quot;')}" placeholder="Habit name" />
+      <input type="text" id="hn${i}" value="${h.name.replace(/"/g,'&quot;')}" placeholder="Habit name" maxlength="20" />
       <input type="text" id="h${i}" value="${h.short.replace(/"/g,'&quot;')}" placeholder="Short label" />
       <button class="delete-habit-btn" onclick="deleteHabit(${i})" title="Delete">×</button>
     </div>`).join('');
