@@ -825,12 +825,10 @@ function lsKey() { return currentUserId ? `_30dc_${currentUserId}` : '_30dc_anon
 function save() {
   const data = {
     habits, checked, notes,
-    startDate: startDate ? startDate.toISOString() : null,
+    startDate: startDate || null, // already a YYYY-MM-DD string
     challengeTitle, userName
   };
-  // Always write to localStorage immediately for snappy UX
   try { localStorage.setItem(lsKey(), JSON.stringify(data)); } catch(e) {}
-  // Write to Firestore in background — no await, fire and forget
   if (currentUserId && window._fbSave) {
     window._fbSave(currentUserId, data).catch(e => console.warn('Firestore save failed:', e));
   }
@@ -1079,7 +1077,7 @@ async function startChallenge() {
   userName = nameVal;
   challengeTitle = titleVal || '30-Day Challenge';
   habits = newHabits; checked = {};
-  startDate = new Date(dateVal + 'T00:00:00');
+  startDate = dateVal; // store as YYYY-MM-DD string, never UTC ISO
   save(); launchApp();
 }
 
@@ -1091,7 +1089,7 @@ function launchApp() {
   const mid = Math.ceil(parts.length / 2);
   const a = parts.slice(0,mid).join(' '), b = parts.slice(mid).join(' ');
   document.getElementById('appTitle').innerHTML = b ? `${a}<br><em>${b}</em>` : `<em>${a}</em>`;
-  document.getElementById('appDateLabel').textContent = 'Starting ' + startDate.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+  document.getElementById('appDateLabel').textContent = 'Starting ' + parseLocalDate(startDate).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
   loadDailyQuote(); render();
 }
 
@@ -1111,16 +1109,18 @@ function confirmReset() {
     // Restore the saved icon — don't use the default placeholder
     if (icon && h.icon) icon.textContent = h.icon;
   });
-  if (startDate) document.getElementById('setupDate').value = startDate.toISOString().slice(0,10);
+  if (startDate) document.getElementById('setupDate').value = startDate;
   document.getElementById('setupTitle').value = challengeTitle;
   document.getElementById('setupName').value = userName;
 }
 
-function toDateVal(d) { return d.toISOString().slice(0,10); }
+function toDateVal(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function parseLocalDate(s) { if (!s) return null; const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
 function currentDay() {
   if (!startDate) return 0;
+  const start = parseLocalDate(startDate);
   const today = new Date(); today.setHours(0,0,0,0);
-  return Math.max(0, Math.min(Math.floor((today-startDate)/86400000)+1, 30));
+  return Math.max(0, Math.min(Math.floor((today-start)/86400000)+1, 30));
 }
 function toggle(day, p) { checked[day+'_'+p] = !checked[day+'_'+p]; save(); render(); }
 
@@ -1382,7 +1382,7 @@ function submitFeedback() {
 
 function loadDataIntoApp(s) {
   habits = s.habits; checked = s.checked || {}; notes = s.notes || {};
-  startDate = new Date(s.startDate);
+  startDate = s.startDate; // keep as YYYY-MM-DD string
   challengeTitle = s.challengeTitle || '30-Day Challenge';
   userName = s.userName || '';
   launchApp();
@@ -1517,7 +1517,7 @@ function exportProgress() {
   let out = [];
   out.push(`# ${challengeTitle} — Progress Summary`);
   out.push(`Exported by ${userName || 'user'} on ${exportDate}`);
-  if (startDate) out.push(`Challenge started: ${startDate.toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}`);
+  if (startDate) out.push(`Challenge started: ${parseLocalDate(startDate).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}`);
   out.push(`Current day: ${Math.min(today, 30)} of 30`);
   out.push('');
 
@@ -1544,7 +1544,7 @@ function exportProgress() {
   // Day-by-day log
   out.push('## Daily Log');
   for (let d = 1; d <= Math.min(today, 30); d++) {
-    const calDate = startDate ? (() => { const dt = new Date(startDate); dt.setDate(dt.getDate()+d-1); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}); })() : '';
+    const calDate = startDate ? (() => { const dt = parseLocalDate(startDate); dt.setDate(dt.getDate()+d-1); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}); })() : '';
     const allDone = habits.every((_,p) => checked[d+'_'+p]);
     out.push(`### Day ${d}${calDate ? ' · ' + calDate : ''}${allDone ? ' ✅' : ''}`);
     let hasContent = false;
