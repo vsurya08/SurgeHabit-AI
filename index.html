@@ -1115,7 +1115,14 @@ function confirmReset() {
 }
 
 function toDateVal(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function parseLocalDate(s) { if (!s) return null; const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); }
+function parseLocalDate(s) {
+  if (!s) return null;
+  // Handle both YYYY-MM-DD (new) and ISO timestamp (legacy e.g. "2026-06-08T07:00:00.000Z")
+  const str = typeof s === 'string' ? s : s.toISOString ? s.toISOString() : String(s);
+  const dateOnly = str.slice(0, 10); // grab YYYY-MM-DD from either format
+  const [y, m, d] = dateOnly.split('-').map(Number);
+  return new Date(y, m - 1, d); // local timezone, no UTC shift
+}
 function currentDay() {
   if (!startDate) return 0;
   const start = parseLocalDate(startDate);
@@ -1382,7 +1389,8 @@ function submitFeedback() {
 
 function loadDataIntoApp(s) {
   habits = s.habits; checked = s.checked || {}; notes = s.notes || {};
-  startDate = s.startDate; // keep as YYYY-MM-DD string
+  // Normalise startDate to YYYY-MM-DD regardless of how it was stored
+  startDate = s.startDate ? s.startDate.slice(0, 10) : null;
   challengeTitle = s.challengeTitle || '30-Day Challenge';
   userName = s.userName || '';
   launchApp();
