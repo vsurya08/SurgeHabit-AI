@@ -112,12 +112,6 @@ git clone https://github.com/vsurya08/30day-challenge.git
 
 # Open index.html directly in a browser, or deploy to any static host
 ```
-
-**Free hosting options:**
-- [GitHub Pages](https://pages.github.com) — already set up if you're reading this
-- [Netlify Drop](https://app.netlify.com/drop) — drag and drop for an instant URL
-- [Vercel](https://vercel.com) — one-command deploy
-
 ---
 
 ## Tech stack
