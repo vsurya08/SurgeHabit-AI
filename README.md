@@ -8,7 +8,7 @@ A beautiful, fully self-contained habit tracker for 30-day challenges. No app in
 
 ## Live Demo
 
-👉 **[Open the tracker](https://vsurya08.github.io/30day-challenge)**
+👉 **[Open the tracker][(https://vsurya08.github.io/SurgeHabit-AI/)]**
 
 ---
 
