@@ -245,6 +245,35 @@
   .daily-notes-field.open { display: block; }
   .has-note .daily-notes-toggle { color: var(--ink); font-weight: 500; }
 
+  /* Inline time picker */
+  .daily-habit-time { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+  .daily-habit-time i { font-size: 12px; }
+  .daily-time-edit { font-size: 10px; color: var(--c1); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; margin-left: 4px; }
+  .daily-no-time { font-size: 11px; color: var(--border); cursor: pointer; display: flex; align-items: center; gap: 3px; margin-top: 3px; transition: color 0.1s; }
+  .daily-no-time:hover { color: var(--muted); }
+  .daily-time-picker { display: none; align-items: center; gap: 6px; margin-top: 6px; }
+  .daily-time-picker.open { display: flex; }
+  .daily-time-picker input[type="time"] { font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--ink); border: 1px solid var(--c1); border-radius: 6px; padding: 5px 8px; background: white; outline: none; }
+  .daily-time-picker-save { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; background: var(--c1); color: white; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+  .daily-time-picker-cancel { font-size: 11px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+
+  /* Calendar banner */
+  .cal-banner {
+    background: white;
+    border: 1px solid #b8d0ef;
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .cal-banner-text { font-size: 12px; color: var(--ink); font-weight: 500; }
+  .cal-banner-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .cal-banner-btn { display: flex; align-items: center; gap: 5px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; color: var(--c1); background: var(--c1-light); border: none; border-radius: 7px; padding: 7px 11px; cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: opacity 0.15s; }
+  .cal-banner-btn:hover { opacity: 0.8; }
+
   /* Weekly view */
   .week { margin-bottom: 28px; }
   .week-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
@@ -1240,22 +1269,69 @@ function renderCalendar() {
   else renderMonthlyView();
 }
 
+function toggleTimePicker(p) {
+  const picker = document.getElementById(`tp-${p}`);
+  if (!picker) return;
+  picker.classList.toggle('open');
+}
+
+function saveHabitTime(p) {
+  const input = document.getElementById(`tp-input-${p}`);
+  if (!input) return;
+  habits[p].time = input.value;
+  save();
+  renderDailyView();
+}
+
 function renderDailyView() {
   const today=currentDay(), dn=today>0?today:1;
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   const doneCt=habits.filter((_,p)=>checked[dn+'_'+p]).length;
   const greeting = userName ? `${userName} —` : '';
+
+  const habitsWithTime = habits.filter(h => h.time);
+  const calBanner = habitsWithTime.length > 0 ? `
+    <div class="cal-banner">
+      <div>
+        <div class="cal-banner-text">${habitsWithTime.length} habit${habitsWithTime.length!==1?'s':''} have times set</div>
+        <div class="cal-banner-sub">Add reminders to your calendar</div>
+      </div>
+      <button class="cal-banner-btn" onclick="exportCalendar()">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="2" width="11" height="10" rx="2" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="5" x2="12" y2="5" stroke="currentColor" stroke-width="1.2"/><line x1="4" y1="1" x2="4" y2="3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="9" y1="1" x2="9" y2="3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        Add to Calendar
+      </button>
+    </div>` : '';
+
   const habitRows=habits.map((h,p)=>{
     const on=checked[dn+'_'+p];
     const note = notes[dn+'_'+p] || '';
     const hasNote = !!note;
+    const timeSection = h.time ? `
+      <div class="daily-habit-time" onclick="event.stopPropagation()">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" stroke-width="1.1"/><polyline points="5.5,2.5 5.5,5.5 7.5,6.8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+        ${formatTime(h.time)}
+        <span class="daily-time-edit" onclick="toggleTimePicker(${p})">change</span>
+      </div>
+      <div class="daily-time-picker" id="tp-${p}" onclick="event.stopPropagation()">
+        <input type="time" id="tp-input-${p}" value="${h.time}" />
+        <button class="daily-time-picker-save" onclick="saveHabitTime(${p})">Save</button>
+        <button class="daily-time-picker-cancel" onclick="toggleTimePicker(${p})">Cancel</button>
+      </div>` : `
+      <div class="daily-no-time" onclick="event.stopPropagation();toggleTimePicker(${p})">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" stroke-width="1.1"/><polyline points="5.5,2.5 5.5,5.5 7.5,6.8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+        Set a reminder time
+      </div>
+      <div class="daily-time-picker" id="tp-${p}" onclick="event.stopPropagation()">
+        <input type="time" id="tp-input-${p}" value="" />
+        <button class="daily-time-picker-save" onclick="saveHabitTime(${p})">Save</button>
+        <button class="daily-time-picker-cancel" onclick="toggleTimePicker(${p})">Cancel</button>
+      </div>`;
     return `<div class="daily-habit-row ${on?'done-'+p:''} ${hasNote?'has-note':''}" id="nt-row-${dn}-${p}">
       <div class="daily-chk" onclick="toggle(${dn},${p})">${CHECK_SVG_LG}</div>
       <div class="daily-habit-icon" onclick="toggle(${dn},${p})">${h.icon}</div>
       <div class="daily-habit-info" style="flex:1">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px" onclick="toggle(${dn},${p})">
-          <div><div class="daily-habit-name">${h.name}</div><div class="daily-habit-short">${h.short}</div></div>
-        </div>
+        <div onclick="toggle(${dn},${p})"><div class="daily-habit-name">${h.name}</div></div>
+        ${timeSection}
         <div class="daily-habit-notes-wrap" onclick="event.stopPropagation()">
           <button class="daily-notes-toggle ${note?'open':''}" id="nt-toggle-${dn}-${p}" onclick="toggleNote(${dn},${p})">
             <span class="note-arrow">›</span> ${hasNote ? '📝 Edit note' : '+ Add note'}
@@ -1272,6 +1348,7 @@ function renderDailyView() {
   document.getElementById('calendar').innerHTML = `
     <div class="daily-date">${greeting} ${dateStr}</div>
     <div class="daily-subtitle">Day ${dn} of 30 &nbsp;·&nbsp; ${doneCt} of ${habits.length} habits done</div>
+    ${calBanner}
     <div class="daily-habits">${habitRows}</div>
     <div class="daily-summary">
       <div><div class="daily-summary-score">${doneCt}/${habits.length}</div><div class="daily-summary-label">Today's habits</div></div>
