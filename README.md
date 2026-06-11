@@ -1,14 +1,14 @@
-# 30-Day Challenge Tracker
+# SurgeHabit AI
 
-A beautiful, fully self-contained habit tracker for 30-day challenges. No app install, no account, no server — just open the link and start.
+A beautiful, AI-powered habit tracker for 30-day challenges. Sign in with Google, define your habits, and track them across every device you own.
 
-![30-Day Challenge](https://img.shields.io/badge/habit--tracker-30--day-4a9d6f?style=flat-square) ![No dependencies](https://img.shields.io/badge/dependencies-none-blue?style=flat-square) ![AI powered](https://img.shields.io/badge/AI-Claude%20powered-6b45c8?style=flat-square) ![Offline ready](https://img.shields.io/badge/offline-ready-brightgreen?style=flat-square)
+![SurgeHabit AI](https://img.shields.io/badge/habit--tracker-SurgeHabit--AI-4a9d6f?style=flat-square) ![No dependencies](https://img.shields.io/badge/dependencies-none-blue?style=flat-square) ![AI powered](https://img.shields.io/badge/AI-Claude%20powered-6b45c8?style=flat-square) ![Firebase](https://img.shields.io/badge/auth-Firebase-orange?style=flat-square)
 
 ---
 
 ## Live Demo
 
-👉 **[SurgeHabit-AI: Your Habit Partner](https://vsurya08.github.io/SurgeHabit-AI/)**
+👉 **[Open SurgeHabit AI](https://vsurya08.github.io/SurgeHabit-AI/)**
 
 ---
 
@@ -16,11 +16,12 @@ A beautiful, fully self-contained habit tracker for 30-day challenges. No app in
 
 You define your challenge. The tracker keeps you honest.
 
-On first open, a short setup screen asks for:
+On first open, you sign in with Google, then a short setup screen asks for:
+
 - Your name
-- A challenge title — type it and AI instantly suggests 6 relevant habits
+- A challenge title — type it and AI instantly suggests 6 relevant habits with icons
 - A start date
-- 2–6 habits (pre-filled by AI, fully editable)
+- 2–6 habits (pre-filled by AI, fully editable — keep names to 2–3 words)
 
 After that, you get a full 30-day tracking dashboard with three views:
 
@@ -41,90 +42,110 @@ After that, you get a full 30-day tracking dashboard with three views:
 - **Live stats** — current day, streak, overall completion %, and perfect days at a glance
 
 ### AI-powered
-- **AI habit suggestions** — type your challenge name and Claude instantly suggests 6 relevant habits with icons and short labels. Regenerate anytime
-- **Daily motivational quote** — a fresh AI-generated quote each morning, tailored to your specific habits and your name. Cached so it loads instantly on repeat visits
+- **AI habit suggestions** — type your challenge name and Claude instantly suggests 6 relevant habits with icons. Regenerate anytime
+- **Daily motivational quote** — a curated quote tailored to your challenge type, drawn from a pre-generated library of 210 quotes across 7 challenge types. Loads instantly, zero API cost
+
+### Auth & sync
+- **Google Sign-In** — one-tap sign in via Google OAuth
+- **Cross-device sync** — your progress syncs to Firestore in real time. Open on your phone, pick up on your laptop
+- **Multi-user on one device** — each Google account has completely separate data
 
 ### Habits management
-- **Drag to reorder** — rearrange habit tiles by dragging, settings panel updates to match
+- **Drag to reorder** — rearrange habit tiles by dragging
 - **Add habits** — add up to 6 habits at any time from the settings panel
-- **Edit habits** — rename the habit name and short label inline
+- **Edit habits** — rename any habit inline
 - **Delete habits** — remove habits with a single click, progress re-indexes correctly
-- **Set a target time** — assign a time to each habit (e.g. 06:30) for reminders and calendar events
+- **Set a target time** — assign a time to each habit for reminders and calendar export
 
 ### Reminders & calendar
 - **Add to Calendar** — downloads a `.ics` file with one event per habit per day across all 30 days, with a built-in 5-minute alert. Opens in Apple Calendar, Google Calendar, or Outlook
 - **Browser reminders** — enable in-browser notifications that fire 5 minutes before each habit's scheduled time while the tab is open
 
 ### Views
-- **Calendar dates** — weekly and monthly views show the actual calendar date (e.g. Mar 27) under each day number
-- **Check animation** — checking off a habit in the daily view triggers a spring pop, colour ripple, and row slide animation
+- **Calendar dates** — weekly and monthly views show the actual calendar date (e.g. Jun 11) under each day number
+- **Timezone-aware** — day counter and date highlights use your local timezone, not UTC
+- **Check animation** — checking off a habit triggers a spring pop, colour ripple, and row slide animation
+
+### Notes & export
+- **Notes per habit per day** — tap "+ Add note" on any habit to log how it went
+- **Export progress summary** — downloads a full `.md` report with stats, per-habit completion %, and a day-by-day log with notes
 
 ### Other
-- **User name personalisation** — your name appears in the daily quote and motivational message
 - **Feedback button** — floating button links to a Google Form for user feedback
-- **Google Analytics** — visitor tracking built in
-- **Offline-ready** — works without an internet connection after the first load (AI features require connection)
+- **Google Analytics** — visitor and event tracking built in
+- **Mobile-optimised** — responsive 3-column tile grid with fluid font sizes via `clamp()`
 
 ---
 
 ## How data is stored
 
-All your entries are saved to your browser's **localStorage** — they stay on your device, in your browser. Nothing is sent to a server. Your data is private by default.
+Your data is stored in **Firestore** (Google's cloud database), linked to your Google account. It syncs automatically across every device you sign in on.
 
-This also means:
-- Progress doesn't sync across devices or browsers
-- Clearing browser data will erase progress
-- Each person who opens the link gets their own fully independent tracker
+- Data is private to your Google account — no one else can access it
+- Firestore security rules enforce that users can only read and write their own documents
+- localStorage is used as a fast local cache for instant load times
 
 ---
 
 ## How to use
 
 1. Open the link above
-2. Type your challenge name — habits will be suggested automatically when you leave the field
-3. Edit the suggested habits, add your name and start date
-4. Click **Start my challenge**
-5. Each day, open the tracker and tap habits in the Daily view to check them off
-6. Use Weekly or Monthly views to spot patterns
-7. Open **Customize habits** → set a time for each habit → click **Add to Calendar** to get native reminders on your phone
+2. Click **Sign in with Google** — your progress is tied to your account
+3. Type your challenge name — AI suggests 6 habits automatically when you leave the field
+4. Edit the suggested habits (keep names to 2–3 words), set your start date
+5. Click **Start my challenge**
+6. Each day, open the tracker and tap habits in the Daily view to check them off
+7. Use Weekly or Monthly views to spot patterns
+8. Open **Customize habits** → set a time per habit → click **Add to Calendar** for native reminders
 
 ---
 
 ## Customising habits
 
 Open the **Customize habits** panel at any time to:
-- Edit the habit name and short label
+
+- Edit the habit name (max 20 characters, 2–3 words recommended)
 - Set a target time for each habit
 - Add a new habit (up to 6 total)
 - Delete a habit you no longer want to track
 - Download a `.ics` calendar file with reminders for all timed habits
-- Enable browser notifications (fires 5 mins before each habit's time while tab is open)
+- Enable browser notifications
+- Export your full progress summary as markdown
 
----
-
-## Deploying your own copy
-
-This is a single `index.html` file with no build step, no framework, and no external dependencies beyond Google Fonts and the Anthropic API.
-
-```bash
-# Clone the repo
-git clone https://github.com/vsurya08/30day-challenge.git
-
-# Open index.html directly in a browser, or deploy to any static host
-```
 ---
 
 ## Tech stack
 
 | Layer | What's used |
 |---|---|
-| UI | Vanilla HTML, CSS, JavaScript — zero frameworks |
+| Frontend | Vanilla HTML, CSS, JavaScript — zero frameworks |
 | Fonts | DM Serif Display + DM Sans via Google Fonts |
-| Storage | Browser localStorage |
-| AI habits & quotes | Anthropic Claude API (claude-sonnet-4) |
+| Hosting | GitHub Pages |
+| Identity | Google OAuth + Firebase Authentication |
+| Database | Firestore — real-time cross-device sync |
+| AI proxy | Cloudflare Workers — secure server-side proxy for Claude API |
+| AI features | Anthropic Claude API (claude-sonnet-4) — habit suggestions, icon suggestions |
 | Analytics | Google Analytics 4 |
 | Calendar | `.ics` file generation (iCalendar standard) |
 | Notifications | Web Notifications API |
+
+---
+
+## Deploying your own copy
+
+This is a single `index.html` file with no build step and no framework. To run your own instance you need:
+
+1. **Firebase project** — enable Google Auth and Firestore. Update the `firebaseConfig` in `index.html`
+2. **Anthropic API key** — get one at `console.anthropic.com`
+3. **Cloudflare Worker** — deploy a proxy worker that forwards requests to the Anthropic API with your key stored as a secret. Update the worker URL in `index.html`
+4. **GitHub Pages** — push `index.html` to a repo and enable Pages
+
+```bash
+# Clone the repo
+git clone https://github.com/vsurya08/SurgeHabit-AI.git
+
+# Open index.html directly in a browser, or deploy to any static host
+```
 
 ---
 
