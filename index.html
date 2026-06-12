@@ -1273,7 +1273,9 @@ function exportCalendar() {
   const habitsWithTime = habits.map((h,i) => ({...h, idx:i})).filter(h => h.time);
   if (habitsWithTime.length === 0) { alert('Set a time for at least one habit first.'); return; }
   const start = parseLocalDate(startDate) || new Date();
-  let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SurgeHabit AI//30 Day Challenge//EN\r\n';
+  const now = new Date();
+  const dtStamp = `${now.getUTCFullYear()}${String(now.getUTCMonth()+1).padStart(2,'0')}${String(now.getUTCDate()).padStart(2,'0')}T${String(now.getUTCHours()).padStart(2,'0')}${String(now.getUTCMinutes()).padStart(2,'0')}${String(now.getUTCSeconds()).padStart(2,'0')}Z`;
+  let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SurgeHabit AI//30 Day Challenge//EN\r\nCALSCALE:GREGORIAN\r\n';
   for (let day = 1; day <= 30; day++) {
     const date = new Date(start); date.setDate(date.getDate() + day - 1);
     const y = date.getFullYear(), m = String(date.getMonth()+1).padStart(2,'0'), d = String(date.getDate()).padStart(2,'0');
@@ -1282,11 +1284,14 @@ function exportCalendar() {
       const dtStart = `${y}${m}${d}T${hh.padStart(2,'0')}${mm.padStart(2,'0')}00`;
       const endDate = new Date(date); endDate.setMinutes(endDate.getMinutes()+15);
       const dtEnd = `${endDate.getFullYear()}${String(endDate.getMonth()+1).padStart(2,'0')}${String(endDate.getDate()).padStart(2,'0')}T${String(endDate.getHours()).padStart(2,'0')}${String(endDate.getMinutes()).padStart(2,'0')}00`;
+      // Sanitize summary - remove emoji and special chars that can break some parsers
+      const cleanName = h.name.replace(/[^\x20-\x7E]/g, '').trim() || h.name;
       ics += 'BEGIN:VEVENT\r\n';
-      ics += `UID:${h.idx}-${day}-${Date.now()}@surgehabit\r\n`;
+      ics += `UID:surgehabit-${h.idx}-day${day}-${start.getTime()}@surgehabit.app\r\n`;
+      ics += `DTSTAMP:${dtStamp}\r\n`;
       ics += `DTSTART:${dtStart}\r\n`;
       ics += `DTEND:${dtEnd}\r\n`;
-      ics += `SUMMARY:${h.icon} ${h.name} — Day ${day} of 30\r\n`;
+      ics += `SUMMARY:${cleanName} - Day ${day} of 30\r\n`;
       ics += 'BEGIN:VALARM\r\nTRIGGER:-PT5M\r\nACTION:DISPLAY\r\nDESCRIPTION:Reminder\r\nEND:VALARM\r\n';
       ics += 'END:VEVENT\r\n';
     });
