@@ -1274,23 +1274,21 @@ function exportCalendar() {
   if (habitsWithTime.length === 0) { alert('Set a time for at least one habit first.'); return; }
   const start = parseLocalDate(startDate) || new Date();
   const now = new Date();
-  const dtStamp = `${now.getUTCFullYear()}${String(now.getUTCMonth()+1).padStart(2,'0')}${String(now.getUTCDate()).padStart(2,'0')}T${String(now.getUTCHours()).padStart(2,'0')}${String(now.getUTCMinutes()).padStart(2,'0')}${String(now.getUTCSeconds()).padStart(2,'0')}Z`;
+  const toUTCString = (d) => `${d.getUTCFullYear()}${String(d.getUTCMonth()+1).padStart(2,'0')}${String(d.getUTCDate()).padStart(2,'0')}T${String(d.getUTCHours()).padStart(2,'0')}${String(d.getUTCMinutes()).padStart(2,'0')}${String(d.getUTCSeconds()).padStart(2,'0')}Z`;
+  const dtStamp = toUTCString(now);
   let ics = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SurgeHabit AI//30 Day Challenge//EN\r\nCALSCALE:GREGORIAN\r\n';
   for (let day = 1; day <= 30; day++) {
-    const date = new Date(start); date.setDate(date.getDate() + day - 1);
-    const y = date.getFullYear(), m = String(date.getMonth()+1).padStart(2,'0'), d = String(date.getDate()).padStart(2,'0');
     habitsWithTime.forEach(h => {
-      const [hh, mm] = h.time.split(':');
-      const dtStart = `${y}${m}${d}T${hh.padStart(2,'0')}${mm.padStart(2,'0')}00`;
-      const endDate = new Date(date); endDate.setMinutes(endDate.getMinutes()+15);
-      const dtEnd = `${endDate.getFullYear()}${String(endDate.getMonth()+1).padStart(2,'0')}${String(endDate.getDate()).padStart(2,'0')}T${String(endDate.getHours()).padStart(2,'0')}${String(endDate.getMinutes()).padStart(2,'0')}00`;
-      // Sanitize summary - remove emoji and special chars that can break some parsers
-      const cleanName = h.name.replace(/[^\x20-\x7E]/g, '').trim() || h.name;
+      const [hh, mm] = h.time.split(':').map(Number);
+      // Build event start in LOCAL time, then convert to UTC for the ICS file
+      const eventStart = new Date(start.getFullYear(), start.getMonth(), start.getDate() + day - 1, hh, mm, 0);
+      const eventEnd = new Date(eventStart.getTime() + 15*60000);
+      const cleanName = h.name.replace(/[^\x20-\x7E]/g, '').trim() || 'Habit';
       ics += 'BEGIN:VEVENT\r\n';
       ics += `UID:surgehabit-${h.idx}-day${day}-${start.getTime()}@surgehabit.app\r\n`;
       ics += `DTSTAMP:${dtStamp}\r\n`;
-      ics += `DTSTART:${dtStart}\r\n`;
-      ics += `DTEND:${dtEnd}\r\n`;
+      ics += `DTSTART:${toUTCString(eventStart)}\r\n`;
+      ics += `DTEND:${toUTCString(eventEnd)}\r\n`;
       ics += `SUMMARY:${cleanName} - Day ${day} of 30\r\n`;
       ics += 'BEGIN:VALARM\r\nTRIGGER:-PT5M\r\nACTION:DISPLAY\r\nDESCRIPTION:Reminder\r\nEND:VALARM\r\n';
       ics += 'END:VEVENT\r\n';
