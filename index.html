@@ -1277,8 +1277,10 @@ function toggleTimePicker(p) {
 
 function saveHabitTime(p) {
   const input = document.getElementById(`tp-input-${p}`);
-  if (!input) return;
-  habits[p].time = input.value;
+  if (!input) { console.warn('tp-input-'+p+' not found'); return; }
+  const val = input.value;
+  if (!val) { alert('Please select a time first.'); return; }
+  habits[p].time = val;
   save();
   renderDailyView();
 }
@@ -1312,19 +1314,19 @@ function renderDailyView() {
         ${formatTime(h.time)}
         <span class="daily-time-edit" onclick="toggleTimePicker(${p})">change</span>
       </div>
-      <div class="daily-time-picker" id="tp-${p}" onclick="event.stopPropagation()">
-        <input type="time" id="tp-input-${p}" value="${h.time}" />
-        <button class="daily-time-picker-save" onclick="saveHabitTime(${p})">Save</button>
-        <button class="daily-time-picker-cancel" onclick="toggleTimePicker(${p})">Cancel</button>
+      <div class="daily-time-picker" id="tp-${p}">
+        <input type="time" id="tp-input-${p}" value="${h.time}" onclick="event.stopPropagation()" />
+        <button class="daily-time-picker-save" onclick="event.stopPropagation();saveHabitTime(${p})">Save</button>
+        <button class="daily-time-picker-cancel" onclick="event.stopPropagation();toggleTimePicker(${p})">Cancel</button>
       </div>` : `
       <div class="daily-no-time" onclick="event.stopPropagation();toggleTimePicker(${p})">
         <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" stroke-width="1.1"/><polyline points="5.5,2.5 5.5,5.5 7.5,6.8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
         Set a reminder time
       </div>
-      <div class="daily-time-picker" id="tp-${p}" onclick="event.stopPropagation()">
-        <input type="time" id="tp-input-${p}" value="" />
-        <button class="daily-time-picker-save" onclick="saveHabitTime(${p})">Save</button>
-        <button class="daily-time-picker-cancel" onclick="toggleTimePicker(${p})">Cancel</button>
+      <div class="daily-time-picker" id="tp-${p}">
+        <input type="time" id="tp-input-${p}" value="" onclick="event.stopPropagation()" />
+        <button class="daily-time-picker-save" onclick="event.stopPropagation();saveHabitTime(${p})">Save</button>
+        <button class="daily-time-picker-cancel" onclick="event.stopPropagation();toggleTimePicker(${p})">Cancel</button>
       </div>`;
     return `<div class="daily-habit-row ${on?'done-'+p:''} ${hasNote?'has-note':''}" id="nt-row-${dn}-${p}">
       <div class="daily-chk" onclick="toggle(${dn},${p})">${CHECK_SVG_LG}</div>
