@@ -625,6 +625,32 @@
   .ag-trust { font-size:clamp(11px,1.2vw,13px); color:#8a8778; margin-bottom:clamp(20px,4vh,36px); display:block; }
   .ag-features { display:grid; grid-template-columns:1fr 1fr; gap:clamp(8px,1.5vh,14px) clamp(20px,4vw,40px); width:100%; max-width:360px; border-top:1px solid #d4cfbf; padding-top:clamp(16px,3vh,28px); text-align:left; }
   .ag-feat { display:flex; align-items:center; gap:8px; font-size:clamp(12px,1.3vw,14px); color:#8a8778; white-space:nowrap; }
+  /* In-app browser warning */
+  .ag-iab-warning {
+    display:none;
+    background:#fdf0e8;
+    border:1px solid #ecc9a8;
+    border-radius:10px;
+    padding:14px 16px;
+    margin-bottom:24px;
+    text-align:left;
+    max-width:380px;
+    width:100%;
+  }
+  .ag-iab-warning.show { display:block; }
+  .ag-iab-warning-title { font-size:13px; font-weight:600; color:#1a1a18; margin-bottom:4px; }
+  .ag-iab-warning-text { font-size:12px; color:#8a6f55; line-height:1.5; margin-bottom:8px; }
+  .ag-iab-copy-btn {
+    font-family:'DM Sans',sans-serif;
+    font-size:12px;
+    font-weight:500;
+    color:#1a1a18;
+    background:white;
+    border:1px solid #ecc9a8;
+    border-radius:7px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
   @media (max-width:480px) {
     .ag-features { grid-template-columns:1fr; gap:10px; }
     .ag-feat { white-space:normal; }
@@ -636,6 +662,12 @@
 </style>
 <div id="authGate">
   <div class="ag-inner">
+
+    <div class="ag-iab-warning" id="iabWarning">
+      <div class="ag-iab-warning-title">⚠️ Open in your browser to sign in</div>
+      <div class="ag-iab-warning-text">Google Sign-In doesn't work reliably inside WhatsApp, LinkedIn, or other in-app browsers. Tap the menu (••• or ⋮) and choose "Open in Safari" or "Open in Chrome" — or copy the link below.</div>
+      <button class="ag-iab-copy-btn" onclick="copyAppLink()">Copy link</button>
+    </div>
 
     <div class="ag-title">30-Day<br><em>Challenge</em></div>
 
@@ -1541,9 +1573,43 @@ function updateUserChip(user) {
   if (nameEl) nameEl.textContent = user.displayName ? user.displayName.split(' ')[0] : user.email;
 }
 
+// Detect common in-app browsers where Google OAuth popups/redirects fail
+function isInAppBrowser() {
+  const ua = navigator.userAgent || '';
+  return /FBAN|FBAV|Instagram|Line\/|WhatsApp|MicroMessenger|Twitter|LinkedInApp/i.test(ua);
+}
+
+function copyAppLink() {
+  const url = window.location.href;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => {
+      alert('Link copied! Open your browser app and paste it there.');
+    }).catch(() => {
+      prompt('Copy this link:', url);
+    });
+  } else {
+    prompt('Copy this link:', url);
+  }
+}
+
+// Show warning banner if in an in-app browser
+if (isInAppBrowser()) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const w = document.getElementById('iabWarning');
+    if (w) w.classList.add('show');
+  });
+}
+
 function handleSignIn() {
   if (!window._fbSignIn) { alert('Auth not ready yet — please wait a moment.'); return; }
-  window._fbSignIn().catch(() => alert('Sign-in failed. Please try again.'));
+  window._fbSignIn().catch((err) => {
+    const msg = (err && err.message) || '';
+    if (msg.includes('missing initial state') || msg.includes('sessionStorage') || isInAppBrowser()) {
+      alert('Sign-in isn\'t supported in this app\'s browser. Please tap the menu and choose "Open in Safari" or "Open in Chrome", then try again.');
+    } else {
+      alert('Sign-in failed. Please try again.');
+    }
+  });
 }
 
 function handleSignOut() {
