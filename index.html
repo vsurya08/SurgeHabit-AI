@@ -206,6 +206,50 @@
   .daily-mini-dots { display: flex; gap: 5px; flex-wrap: wrap; max-width: 160px; justify-content: flex-end; }
   .daily-mini-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--paper-dark); }
 
+  /* Daily reflection */
+  .daily-reflection {
+    background: linear-gradient(135deg, #f5f1ea 0%, #ede4d8 100%);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-top: 14px;
+    display: none;
+  }
+  .daily-reflection.show { display: block; }
+  .daily-reflection-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .daily-reflection-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px;
+    font-style: italic;
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  .daily-reflection-loading {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .daily-reflection-spinner {
+    width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
   /* Notes */
   .daily-habit-notes-wrap { margin-top: 8px; }
   .daily-notes-toggle {
@@ -715,8 +759,9 @@
     </div>
 
     <div class="setup-section">
-      <div class="setup-label">Challenge name</div>
-      <input class="setup-input" id="setupTitle" type="text" placeholder="e.g. Morning Routine, Health Reset, Focus Month…" maxlength="60" />
+      <div class="setup-label">Name your challenge</div>
+      <input class="setup-input" id="setupTitle" type="text" placeholder="e.g. Improve my productivity, Become fit, Improve morning routine…" maxlength="60" />
+      <p class="setup-hint">This helps AI suggest relevant habits for your goal.</p>
     </div>
 
     <div class="setup-section">
@@ -870,7 +915,7 @@ const HABIT_ICONS_POOL = ["⭐","🏃","🧠","🎯","📖","🎵","🧘","🍎"
 const COLORS = ['p1','p2','p3','p4','p5','p6'];
 const COLOR_VARS = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)'];
 
-let habits = [], checked = {}, notes = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
+let habits = [], checked = {}, notes = {}, reflections = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
 
 const CHECK_SVG = `<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><polyline points="1.5,4.5 3.5,7 7.5,2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const CHECK_SVG_LG = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9.5 10,2.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -884,7 +929,7 @@ function lsKey() { return currentUserId ? `_30dc_${currentUserId}` : '_30dc_anon
 // Write to both Firestore (source of truth) and localStorage (cache)
 function save() {
   const data = {
-    habits, checked, notes,
+    habits, checked, notes, reflections,
     startDate: startDate || null, // already a YYYY-MM-DD string
     challengeTitle, userName
   };
@@ -1359,6 +1404,49 @@ function saveHabitTime(p) {
   renderDailyView();
 }
 
+// Generate an AI reflection for the day, but only after 9pm local time,
+// only once per day, and only if there's something to reflect on.
+async function maybeGenerateReflection(dn, doneCt) {
+  if (reflections[dn]) return; // already generated
+  const now = new Date();
+  if (now.getHours() < 21) return; // only after 9pm local
+  if (doneCt === 0 && !habits.some((h,p) => notes[dn+'_'+p])) return; // nothing to reflect on
+
+  const el = document.getElementById('dailyReflection');
+  const content = document.getElementById('reflectionContent');
+  if (!el || !content) return;
+
+  el.classList.add('show');
+  content.innerHTML = `<div class="daily-reflection-loading"><div class="daily-reflection-spinner"></div>Reflecting on your day…</div>`;
+
+  const habitSummary = habits.map((h,p) => {
+    const done = checked[dn+'_'+p];
+    const note = notes[dn+'_'+p];
+    return `${h.name}: ${done ? 'done' : 'missed'}${note ? ` (note: "${note}")` : ''}`;
+  }).join('; ');
+
+  try {
+    const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 150,
+        system: `You write short, warm, encouraging end-of-day reflections for a habit tracker app. Respond with 1-2 sentences only, no preamble, no quotes around the text. Tone: supportive friend, not a coach lecturing. Acknowledge what they did (and what they missed, gently, without guilt). If they wrote notes, weave in something from them naturally. If a note describes specific foods for a nutrition-related habit (e.g. protein, calories), give a rough estimate using words like "roughly" or "around" with a range, not a single exact number. If the note is vague (e.g. just "ate well" or no food details), don't estimate at all — acknowledge it generally instead. Never state an estimate as a precise fact.`,
+        messages: [{ role: 'user', content: `Challenge: "${challengeTitle}". Day ${dn} of 30. Habits today — ${habitSummary}. Write a short reflection.` }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    reflections[dn] = text;
+    save();
+    content.innerHTML = `<div class="daily-reflection-text">${text}</div>`;
+  } catch(e) {
+    console.warn('Reflection generation failed:', e);
+    el.classList.remove('show');
+  }
+}
+
 function renderDailyView() {
   const today=currentDay(), dn=today>0?today:1;
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
@@ -1421,6 +1509,12 @@ function renderDailyView() {
     </div>`;
   }).join('');
   const miniDots=habits.map((_,p)=>`<div class="daily-mini-dot" style="${checked[dn+'_'+p]?'background:var(--c'+(p+1)+')':''}"></div>`).join('');
+  const reflectionText = reflections[dn];
+  const reflectionSection = `
+    <div class="daily-reflection ${reflectionText ? 'show' : ''}" id="dailyReflection">
+      <div class="daily-reflection-label">✨ Today's reflection</div>
+      <div id="reflectionContent">${reflectionText ? `<div class="daily-reflection-text">${reflectionText}</div>` : ''}</div>
+    </div>`;
   document.getElementById('calendar').innerHTML = `
     <div class="daily-date">${greeting} ${dateStr}</div>
     <div class="daily-subtitle">Day ${dn} of 30 &nbsp;·&nbsp; ${doneCt} of ${habits.length} habits done</div>
@@ -1429,7 +1523,9 @@ function renderDailyView() {
     <div class="daily-summary">
       <div><div class="daily-summary-score">${doneCt}/${habits.length}</div><div class="daily-summary-label">Today's habits</div></div>
       <div class="daily-mini-dots">${miniDots}</div>
-    </div>`;
+    </div>
+    ${reflectionSection}`;
+  maybeGenerateReflection(dn, doneCt);
 }
 
 function renderWeeklyView() {
@@ -1540,7 +1636,7 @@ function submitFeedback() {
 }
 
 function loadDataIntoApp(s) {
-  habits = s.habits; checked = s.checked || {}; notes = s.notes || {};
+  habits = s.habits; checked = s.checked || {}; notes = s.notes || {}; reflections = s.reflections || {};
   // Normalise startDate to YYYY-MM-DD regardless of how it was stored
   startDate = s.startDate ? s.startDate.slice(0, 10) : null;
   challengeTitle = s.challengeTitle || '30-Day Challenge';
