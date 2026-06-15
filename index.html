@@ -1311,10 +1311,17 @@ function saveHabits() {
   habits.forEach((h,i) => {
     const n=document.getElementById('hn'+i), s=document.getElementById('h'+i);
     const iconEl=document.getElementById('hicon'+i);
+    const oldName = h.name;
     if(n&&n.value.trim()) h.name=n.value.trim();
     if(s&&s.value.trim()) h.short=s.value.trim();
     if(iconEl&&iconEl.textContent.trim()) h.icon=iconEl.textContent.trim();
+    // If the habit was renamed, clear any existing notes for this position —
+    // they belonged to the old habit and would otherwise be misattributed
+    if (oldName !== h.name) {
+      for (let d=1; d<=30; d++) delete notes[d+'_'+i];
+    }
   });
+  reflections = {}; // habit set changed — old reflections no longer accurate
   save(); render(); toggleSettings();
 }
 
@@ -1322,9 +1329,17 @@ function deleteHabit(idx) {
   if(habits.length<=1){alert('You need at least 1 habit.');return;}
   if(!confirm(`Delete "${habits[idx].name}"? All recorded days for this habit will be lost.`)) return;
   habits.splice(idx,1);
-  const nc={};
-  for(let d=1;d<=30;d++){let np=0; for(let p=0;p<habits.length+1;p++){if(p===idx)continue; if(checked[d+'_'+p])nc[d+'_'+np]=true; np++;}}
-  checked=nc; save(); render(); renderSettingsRows();
+  const nc={}, nn={};
+  for(let d=1;d<=30;d++){
+    let np=0;
+    for(let p=0;p<habits.length+1;p++){
+      if(p===idx)continue;
+      if(checked[d+'_'+p])nc[d+'_'+np]=true;
+      if(notes[d+'_'+p])nn[d+'_'+np]=notes[d+'_'+p];
+      np++;
+    }
+  }
+  checked=nc; notes=nn; reflections={}; save(); render(); renderSettingsRows();
 }
 
 function resetProgress() { if(!confirm('Reset all checked days?')) return; checked={}; save(); render(); }
