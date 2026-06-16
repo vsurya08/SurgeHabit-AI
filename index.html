@@ -801,6 +801,12 @@
     </div>
 
     <div class="setup-section">
+      <div class="setup-label">Your daily routine <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></div>
+      <textarea id="setupRoutine" rows="3" placeholder="e.g. I wake at 7am, have water and coffee, drop kids at school, gym around 9am, work from home until 6pm, dinner at 7:30pm, bed by 10:30pm…" style="width:100%;font-family:'DM Sans',sans-serif;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;resize:vertical;color:var(--ink);background:white;line-height:1.5;box-sizing:border-box"></textarea>
+      <p class="setup-hint">AI will suggest habits that fit your schedule and when to do each one.</p>
+    </div>
+
+    <div class="setup-section">
       <div class="setup-label">Start date</div>
       <input class="setup-date-input" id="setupDate" type="date" />
       <p class="setup-hint">Today is pre-filled — change it to backdate your start.</p>
@@ -819,32 +825,6 @@
         </button>
       </div>
       <div class="setup-habits" id="setupHabits"></div>
-    </div>
-
-    <div class="stacking-section" id="stackingSection">
-      <div class="stacking-toggle" onclick="toggleStacking()">
-        <div class="stacking-toggle-left">
-          <div class="stacking-toggle-title">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7.5 3l3.5 3.5L7.5 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Stack onto your routine
-          </div>
-          <div class="stacking-toggle-sub">Optional · AI suggests when to do each habit</div>
-        </div>
-        <svg class="stacking-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><polyline points="4,6 8,10 12,6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="stacking-body" id="stackingBody">
-        <div class="stacking-q">
-          <div class="stacking-q-label">Describe your typical daily routine</div>
-          <textarea id="stackingRoutine" rows="4" placeholder="e.g. I wake at 7am, have water, drop kids at school, gym around 9am, breakfast at 10am, work until 6pm, dinner at 7:30pm, bed by 10:30pm — 2-3 sentences is enough" style="width:100%;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;resize:vertical;color:var(--ink);background:white;line-height:1.5"></textarea>
-          <p class="setup-hint" style="margin-top:4px">The more specific, the better suggestions you'll get.</p>
-        </div>
-        <button class="stacking-suggest-btn" id="stackingSuggestBtn" onclick="suggestStacking()">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 6 7.2 7.4 6 11l-1.2-3.6L1 6l3.8-1.4z" stroke="white" stroke-width="1.1" stroke-linejoin="round"/></svg>
-          Suggest times
-        </button>
-        <span class="stacking-skip" onclick="toggleStacking()">Skip — I'll set times myself</span>
-        <div class="stacking-results" id="stackingResults"></div>
-      </div>
     </div>
 
     <button class="setup-start-btn" onclick="startChallenge()">Start my challenge →</button>
@@ -1150,26 +1130,52 @@ async function suggestHabits(force) {
   if (!force && title === lastSuggestedTitle) return;
   lastSuggestedTitle = title;
 
-  // Show loading state
+  const routine = document.getElementById('setupRoutine')?.value?.trim() || '';
+
   const spinner = document.getElementById('suggestSpinner');
   const statusText = document.getElementById('suggestStatusText');
   const regenBtn = document.getElementById('suggestRegenBtn');
   const container = document.getElementById('setupHabits');
 
   spinner.classList.add('active');
-  statusText.textContent = 'Suggesting habits…';
+  statusText.textContent = routine ? 'Suggesting habits and times…' : 'Suggesting habits…';
   regenBtn.classList.remove('visible');
   container.querySelectorAll('.setup-habit-row').forEach(r => r.classList.add('loading'));
 
   try {
+    const hasRoutine = routine.length > 10;
+
+    const systemPrompt = hasRoutine
+      ? `You suggest exactly 6 daily habits for a 30-day challenge, tailored to both the user's goal AND their daily routine. For each habit, also suggest the best time to do it and a one-sentence stacking suggestion based on their routine anchors.
+
+Respond ONLY with valid JSON — no markdown, no preamble.
+Format: {"habits": [{"name": "...", "short": "...", "icon": "...", "mode": "single|pick|trigger", "time": "HH:MM", "morningTime": "HH:MM", "eveningTime": "HH:MM", "suggestion": "..."}]}
+
+Rules:
+- name: 2-4 words max
+- short: the daily micro-action (5 words max)  
+- icon: single highly relevant emoji
+- mode: "single" if there's a clear best time from their routine, "pick" if it could go either morning or evening, "trigger" if it's a rule/awareness habit (no time)
+- time: for "single" mode, derive from their routine anchors (HH:MM format)
+- morningTime/eveningTime: for "pick" mode only, derive both from their routine
+- suggestion: one warm sentence referencing their actual routine (e.g. "Right after your morning coffee")
+- For "trigger" mode: no time needed, suggestion is a situational cue
+- Make habits specific, actionable, directly relevant to the goal
+- Don't suggest habits the user is clearly already doing (e.g. if they mention gym daily, don't suggest "Go to gym")`
+      : `You suggest exactly 6 daily habits for a 30-day challenge. Respond ONLY with valid JSON — no markdown, no preamble. Format: {"habits": [{"name": "...", "short": "...", "icon": "...", "mode": "trigger", "time": "", "morningTime": "", "eveningTime": "", "suggestion": ""}]}. Rules: name is 2-4 words max, short is the daily micro-action (5 words max), icon is a single highly relevant emoji. Make habits specific, actionable, and directly relevant to the challenge title. Vary the habits — don't repeat themes.`;
+
+    const userMessage = hasRoutine
+      ? `Challenge: "${title}". My daily routine: "${routine}". Suggest 6 habits with times and stacking suggestions tailored to my routine. JSON only.`
+      : `Suggest 6 daily habits for a 30-day challenge called: "${title}". JSON only.`;
+
     const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
-        system: `You suggest exactly 6 daily habits for a 30-day challenge. Respond ONLY with valid JSON — no markdown, no preamble. Format: {"habits": [{"name": "...", "short": "...", "icon": "..."}]}. Rules: name is 2-4 words max, short is the daily micro-action (5 words max), icon is a single highly relevant emoji specific to the habit (e.g. 💪 for exercise, 📚 for reading, 💧 for water). Make habits specific, actionable, and directly relevant to the challenge title. Vary the habits — don't repeat themes.`,
-        messages: [{ role: 'user', content: `Suggest 6 daily habits for a 30-day challenge called: "${title}". JSON only.` }]
+        max_tokens: 1200,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
       })
     });
 
@@ -1179,17 +1185,40 @@ async function suggestHabits(force) {
     const parsed = JSON.parse(cleaned);
     const suggestions = parsed.habits.slice(0, 6);
 
-    // Fill rows — icons already come from the API, no separate icon calls needed
-    container.innerHTML = suggestions.map((h, i) => `
-      <div class="setup-habit-row suggested" style="animation-delay:${i * 0.06}s">
-        <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
-        <span class="setup-habit-icon" id="sicon${i}">${h.icon}</span>
-        <input class="setup-habit-name" id="shn${i}" type="text" value="${h.name.replace(/"/g,'&quot;')}" maxlength="20" />
-        <input class="setup-habit-short" id="shs${i}" type="text" value="${h.short.replace(/"/g,'&quot;')}" maxlength="20" />
-        <input class="setup-habit-time" id="sht${i}" type="time" title="Target time (optional)" />
-      </div>`).join('');
+    container.innerHTML = suggestions.map((h, i) => {
+      const timeRight = h.mode === 'trigger'
+        ? `<span class="stacking-trigger-pill" style="font-size:10px;background:var(--paper-dark);border:0.5px solid var(--border);border-radius:20px;padding:2px 8px;color:var(--muted);white-space:nowrap">⚡ trigger</span>`
+        : h.mode === 'pick'
+        ? `<div style="display:flex;gap:4px;align-items:center">
+            <input class="setup-habit-time" id="sht${i}" type="time" title="Target time" style="width:90px" />
+            <button class="stacking-pick-btn" style="font-size:10px;padding:3px 7px" onclick="pickStackTime(${i}, '${h.morningTime}', this)">🌅</button>
+            <button class="stacking-pick-btn" style="font-size:10px;padding:3px 7px" onclick="pickStackTime(${i}, '${h.eveningTime}', this)">🌙</button>
+           </div>`
+        : `<input class="setup-habit-time" id="sht${i}" type="time" value="${h.time||''}" title="Target time" style="width:90px" />`;
 
-    // Only wire icon relevance check for manual edits (not initial load)
+      const suggestionRow = hasRoutine && h.suggestion
+        ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;padding-left:2px;line-height:1.4">🔗 ${h.suggestion}</div>`
+        : '';
+
+      return `<div class="setup-habit-row suggested" style="animation-delay:${i * 0.06}s;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+          <div class="stacking-accept-toggle accepted" id="stoggle-${i}" onclick="toggleSetupAccept(${i})">
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="setup-swatch" style="background:${COLOR_VARS[i]}"></div>
+          <span class="setup-habit-icon" id="sicon${i}">${h.icon}</span>
+          <input class="setup-habit-name" id="shn${i}" type="text" value="${h.name.replace(/"/g,'&quot;')}" maxlength="20" />
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+          <input class="setup-habit-short" id="shs${i}" type="text" value="${h.short.replace(/"/g,'&quot;')}" maxlength="20" />
+          ${timeRight}
+        </div>
+        ${suggestionRow}
+        <input type="hidden" id="ssuggestion${i}" value="${(h.suggestion||'').replace(/"/g,'&quot;')}" />
+        <input type="hidden" id="smode${i}" value="${h.mode||''}" />
+      </div>`;
+    }).join('');
+
     suggestions.forEach((h, i) => wireIconRelevanceCheck(`shn${i}`, `sicon${i}`, h.icon));
 
     // Pad to 6 if fewer returned
@@ -1207,7 +1236,9 @@ async function suggestHabits(force) {
     }
 
     spinner.classList.remove('active');
-    statusText.textContent = `6 habits suggested for "${title}"`;
+    statusText.textContent = hasRoutine
+      ? `6 habits suggested with times for "${title}"`
+      : `6 habits suggested for "${title}"`;
     regenBtn.classList.add('visible');
 
   } catch(e) {
@@ -1369,6 +1400,16 @@ function applyStackingTimes(suggestions) {
   if (btn) btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 6 7.2 7.4 6 11l-1.2-3.6L1 6l3.8-1.4z" stroke="white" stroke-width="1.1" stroke-linejoin="round"/></svg> ✓ Times applied';
 }
 
+function toggleSetupAccept(i) {
+  const toggle = document.getElementById('stoggle-'+i);
+  const row = toggle?.closest('.setup-habit-row');
+  if (!toggle || !row) return;
+  const isAccepted = toggle.classList.contains('accepted');
+  toggle.classList.toggle('accepted', !isAccepted);
+  row.style.opacity = isAccepted ? '0.4' : '1';
+  row.dataset.rejected = isAccepted ? 'true' : 'false';
+}
+
 async function startChallenge() {
   const nameVal = document.getElementById('setupName').value.trim();
   const titleVal = document.getElementById('setupTitle').value.trim();
@@ -1384,12 +1425,22 @@ async function startChallenge() {
 
   const newHabits = [];
   for (let i = 0; i < 6; i++) {
-    const name = document.getElementById('shn'+i).value.trim();
-    const short = document.getElementById('shs'+i).value.trim();
-    const time = document.getElementById('sht'+i) ? document.getElementById('sht'+i).value : '';
+    const nameEl = document.getElementById('shn'+i);
+    if (!nameEl) continue;
+    const name = nameEl.value.trim();
+    if (!name) continue;
+    const row = nameEl.closest('.setup-habit-row');
+    // Skip rejected habits (unchecked via accept toggle)
+    if (row && row.dataset.rejected === 'true') continue;
+    const short = document.getElementById('shs'+i)?.value?.trim() || name;
+    const timeEl = document.getElementById('sht'+i);
+    const time = timeEl ? timeEl.value : '';
     const iconEl = document.getElementById('sicon'+i);
     const icon = iconEl ? iconEl.textContent.trim() : SETUP_DEFAULTS[i].icon;
-    if (name) newHabits.push({ name, short: short || name, icon, time });
+    // Read stacking suggestion from hidden field — write to h.short as daily subtitle
+    const suggestionEl = document.getElementById('ssuggestion'+i);
+    const suggestion = suggestionEl ? suggestionEl.value.trim() : '';
+    newHabits.push({ name, short: suggestion || short, icon, time });
   }
   if (newHabits.length < 2) { alert('Please add at least 2 habits to get started.'); return; }
   userName = nameVal;
