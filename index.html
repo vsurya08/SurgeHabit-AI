@@ -1369,7 +1369,7 @@ function applyStackingTimes(suggestions) {
   if (btn) btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 6 7.2 7.4 6 11l-1.2-3.6L1 6l3.8-1.4z" stroke="white" stroke-width="1.1" stroke-linejoin="round"/></svg> ✓ Times applied';
 }
 
-function startChallenge() {
+async function startChallenge() {
   const nameVal = document.getElementById('setupName').value.trim();
   const titleVal = document.getElementById('setupTitle').value.trim();
   const dateVal = document.getElementById('setupDate').value;
