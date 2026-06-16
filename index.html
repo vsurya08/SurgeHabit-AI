@@ -89,6 +89,42 @@
   .setup-habit-time:focus { border-color: var(--c1); }
   .setup-habit-icon { font-size: 18px; width: 36px; text-align: center; }
   .setup-start-btn { font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; padding: 12px 32px; background: var(--ink); color: white; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; width: 100%; margin-top: 8px; }
+
+  /* Habit stacking section */
+  .stacking-section { margin-bottom: 24px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .stacking-toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; cursor: pointer; background: white; }
+  .stacking-toggle-left { display: flex; flex-direction: column; gap: 2px; }
+  .stacking-toggle-title { font-size: 13px; font-weight: 500; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+  .stacking-toggle-sub { font-size: 11px; color: var(--muted); }
+  .stacking-chevron { font-size: 16px; color: var(--muted); transition: transform 0.2s; }
+  .stacking-section.open .stacking-chevron { transform: rotate(180deg); }
+  .stacking-body { display: none; padding: 14px; border-top: 1px solid var(--border); background: var(--paper); }
+  .stacking-section.open .stacking-body { display: block; }
+  .stacking-q { margin-bottom: 12px; }
+  .stacking-q-label { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .stacking-suggest-btn { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; background: var(--ink); color: white; border: none; border-radius: 7px; padding: 9px 16px; cursor: pointer; width: 100%; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .stacking-skip { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; display: block; }
+  .stacking-spinner { width: 11px; height: 11px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+  /* Stacking suggestion rows */
+  .stacking-results { margin-top: 14px; }
+  .stacking-habit-row { background: white; border: 0.5px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; transition: opacity 0.15s; }
+  .stacking-habit-row.rejected { opacity: 0.4; }
+  .stacking-habit-row.rejected .stacking-time-input { pointer-events: none; }
+  .stacking-accept-toggle { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s, border-color 0.15s; background: white; }
+  .stacking-accept-toggle.accepted { background: var(--c2); border-color: var(--c2); }
+  .stacking-accept-toggle svg { display: none; }
+  .stacking-accept-toggle.accepted svg { display: block; }
+  .stacking-habit-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+  .stacking-habit-name { font-size: 13px; font-weight: 500; color: var(--ink); display: flex; align-items: center; gap: 5px; }
+  .stacking-habit-suggestion { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 3px; }
+  .stacking-time-input { font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--ink); border: 1px solid var(--border); border-radius: 6px; padding: 4px 7px; background: white; outline: none; width: 90px; }
+  .stacking-trigger-pill { font-size: 10px; background: var(--paper-dark); border: 0.5px solid var(--border); border-radius: 20px; padding: 3px 9px; color: var(--muted); white-space: nowrap; }
+  .stacking-confirmed-pill { font-size: 10px; background: #e8f5ee; border: 0.5px solid #a8ddc8; border-radius: 20px; padding: 3px 9px; color: var(--c2); white-space: nowrap; }
+  .stacking-pick-btns { display: flex; gap: 6px; margin-top: 6px; }
+  .stacking-pick-btn { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; background: white; cursor: pointer; color: var(--ink); transition: background 0.1s; }
+  .stacking-pick-btn.selected { background: var(--ink); color: white; border-color: var(--ink); }
+  .stacking-apply-btn { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; background: var(--ink); color: white; border: none; border-radius: 7px; padding: 9px 16px; cursor: pointer; width: 100%; margin-top: 12px; }
   .setup-start-btn:hover { opacity: 0.82; }
   .setup-date-input { font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink); background: white; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; outline: none; width: 100%; }
   .setup-date-input:focus { border-color: var(--c1); }
@@ -785,6 +821,32 @@
       <div class="setup-habits" id="setupHabits"></div>
     </div>
 
+    <div class="stacking-section" id="stackingSection">
+      <div class="stacking-toggle" onclick="toggleStacking()">
+        <div class="stacking-toggle-left">
+          <div class="stacking-toggle-title">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7.5 3l3.5 3.5L7.5 10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Stack onto your routine
+          </div>
+          <div class="stacking-toggle-sub">Optional · AI suggests when to do each habit</div>
+        </div>
+        <svg class="stacking-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none"><polyline points="4,6 8,10 12,6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="stacking-body" id="stackingBody">
+        <div class="stacking-q">
+          <div class="stacking-q-label">Describe your typical daily routine</div>
+          <textarea id="stackingRoutine" rows="4" placeholder="e.g. I wake at 7am, have water, drop kids at school, gym around 9am, breakfast at 10am, work until 6pm, dinner at 7:30pm, bed by 10:30pm — 2-3 sentences is enough" style="width:100%;font-family:'DM Sans',sans-serif;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;resize:vertical;color:var(--ink);background:white;line-height:1.5"></textarea>
+          <p class="setup-hint" style="margin-top:4px">The more specific, the better suggestions you'll get.</p>
+        </div>
+        <button class="stacking-suggest-btn" id="stackingSuggestBtn" onclick="suggestStacking()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 6 7.2 7.4 6 11l-1.2-3.6L1 6l3.8-1.4z" stroke="white" stroke-width="1.1" stroke-linejoin="round"/></svg>
+          Suggest times
+        </button>
+        <span class="stacking-skip" onclick="toggleStacking()">Skip — I'll set times myself</span>
+        <div class="stacking-results" id="stackingResults"></div>
+      </div>
+    </div>
+
     <button class="setup-start-btn" onclick="startChallenge()">Start my challenge →</button>
   </div>
 
@@ -1156,7 +1218,158 @@ async function suggestHabits(force) {
   }
 }
 
-async function startChallenge() {
+async function toggleStacking() {
+  document.getElementById('stackingSection').classList.toggle('open');
+}
+
+async function suggestStacking() {
+  const routine = document.getElementById('stackingRoutine').value.trim();
+  if (!routine) { alert('Please describe your daily routine first — even 2-3 sentences is enough.'); return; }
+
+  const habitList = Array.from(document.querySelectorAll('.setup-habit-row')).map((row, i) => {
+    const name = document.getElementById('shn'+i)?.value?.trim() || '';
+    const icon = document.getElementById('sicon'+i)?.textContent?.trim() || '';
+    return { name, icon };
+  }).filter(h => h.name);
+
+  if (habitList.length === 0) { alert('Please add some habits first.'); return; }
+
+  const btn = document.getElementById('stackingSuggestBtn');
+  const results = document.getElementById('stackingResults');
+  btn.innerHTML = '<div class="stacking-spinner"></div> Thinking…';
+  btn.disabled = true;
+  results.innerHTML = '';
+
+  const title = document.getElementById('setupTitle').value.trim() || 'my challenge';
+
+  try {
+    const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1200,
+        system: `You suggest habit stacking times based on a user's described daily routine. Your job is to find the best natural anchor point in their existing routine for each new habit — not to invent times, but to derive them from what the user actually described.
+
+For each habit, choose one of 4 modes:
+- "single": you can clearly identify the best time and anchor from their routine. Return a specific time and a one-sentence suggestion referencing their actual routine (e.g. "Right after your gym session — while the protein shake is still in hand").
+- "pick": the habit could genuinely fit either morning or evening based on their routine. Return morningTime, eveningTime, and a suggestion explaining both options.
+- "trigger": the habit is a rule or awareness habit (e.g. "no sugar", "protein every meal", "track expenses") — situational, not time-based. Return a specific trigger cue derived from their routine (e.g. "At each meal — log it before putting your fork down").
+- "confirmed": habit already has a time set (not applicable in setup, skip this mode).
+
+Respond ONLY with valid JSON, no markdown fences:
+{"habits": [{"name": "...", "mode": "single|pick|trigger", "time": "HH:MM", "morningTime": "HH:MM", "eveningTime": "HH:MM", "suggestion": "one sentence, warm, specific to their actual routine anchors"}]}
+
+Rules:
+- Always reference the user's actual routine in the suggestion — never generic advice
+- Derive times from what they described — if they gym at 9am, morning habits should cluster around that
+- For trigger mode, suggest a specific situational cue from their day (meals, transitions, locations)
+- If a habit name already implies timing (e.g. "Morning Movement"), confirm it with their routine rather than guessing
+- Keep suggestions concise — one sentence, warm and practical
+- Tone: supportive friend who read their routine carefully, not a generic wellness coach`,
+        messages: [{ role: 'user', content: `Challenge: "${title}". My daily routine: "${routine}". Habits to stack: ${JSON.stringify(habitList)}. Suggest stacking times and anchors based on my actual routine. JSON only.` }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    const cleaned = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+    const parsed = JSON.parse(cleaned);
+    const suggestions = parsed.habits;
+
+    results.innerHTML = suggestions.map((s, i) => {
+      const habit = habitList[i] || {};
+      const topRight = s.mode === 'trigger'
+        ? `<span class="stacking-trigger-pill">⚡ trigger</span>`
+        : s.mode === 'single'
+        ? `<input type="time" class="stacking-time-input" id="stime-${i}" value="${s.time || ''}" />`
+        : `<div style="display:flex;gap:6px"><input type="time" class="stacking-time-input" id="stime-${i}" value="" style="width:80px" /></div>`;
+
+      const pickBtns = s.mode === 'pick' ? `
+        <div class="stacking-pick-btns">
+          <button class="stacking-pick-btn" onclick="pickStackTime(${i}, '${s.morningTime}', this)">🌅 Morning (${formatTime(s.morningTime)})</button>
+          <button class="stacking-pick-btn" onclick="pickStackTime(${i}, '${s.eveningTime}', this)">🌙 Evening (${formatTime(s.eveningTime)})</button>
+        </div>` : '';
+
+      return `<div class="stacking-habit-row accepted" id="srow-${i}">
+        <div class="stacking-habit-top">
+          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+            <div class="stacking-accept-toggle accepted" id="stoggle-${i}" onclick="toggleStackAccept(${i}, ${suggestions.length})">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="stacking-habit-name">${habit.icon} ${habit.name}</div>
+          </div>
+          ${topRight}
+        </div>
+        <div class="stacking-habit-suggestion" style="margin-left:28px">🔗 ${s.suggestion}</div>
+        ${pickBtns}
+      </div>`;
+    }).join('');
+
+    const total = suggestions.length;
+    results.innerHTML += `<button class="stacking-apply-btn" id="stackingApplyBtn" onclick="applyStackingTimes(${JSON.stringify(suggestions).replace(/"/g, '&quot;')})">Apply all ${total} suggestions →</button>`;
+
+  } catch(e) {
+    console.warn('Stacking suggestion failed:', e);
+    results.innerHTML = '<p style="font-size:12px;color:var(--muted);text-align:center;margin-top:8px">Couldn\'t generate suggestions — you can set times manually after starting.</p>';
+  } finally {
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 6 7.2 7.4 6 11l-1.2-3.6L1 6l3.8-1.4z" stroke="white" stroke-width="1.1" stroke-linejoin="round"/></svg> Suggest times';
+    btn.disabled = false;
+  }
+}
+
+function pickStackTime(idx, time, btn) {
+  // Set the time input for this habit
+  const input = document.getElementById('stime-'+idx);
+  if (input) input.value = time;
+  // Mark selected button
+  btn.closest('.stacking-pick-btns').querySelectorAll('.stacking-pick-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function toggleStackAccept(idx, total) {
+  const toggle = document.getElementById('stoggle-'+idx);
+  const row = document.getElementById('srow-'+idx);
+  if (!toggle || !row) return;
+  const isAccepted = toggle.classList.contains('accepted');
+  toggle.classList.toggle('accepted', !isAccepted);
+  row.classList.toggle('accepted', !isAccepted);
+  row.classList.toggle('rejected', isAccepted);
+  // Update apply button count
+  const acceptedCount = document.querySelectorAll('.stacking-habit-row.accepted').length;
+  const applyBtn = document.getElementById('stackingApplyBtn');
+  if (applyBtn) {
+    applyBtn.textContent = acceptedCount === 0
+      ? 'No suggestions selected'
+      : acceptedCount === total
+      ? `Apply all ${total} suggestions →`
+      : `Apply ${acceptedCount} of ${total} suggestions →`;
+    applyBtn.disabled = acceptedCount === 0;
+    applyBtn.style.opacity = acceptedCount === 0 ? '0.4' : '1';
+  }
+}
+
+function applyStackingTimes(suggestions) {
+  suggestions.forEach((s, i) => {
+    const row = document.getElementById('srow-'+i);
+    // Skip rejected rows
+    if (!row || row.classList.contains('rejected')) return;
+    const timeInput = document.getElementById('stime-'+i);
+    const setupTimeInput = document.getElementById('sht'+i);
+    if (setupTimeInput && timeInput && timeInput.value) {
+      setupTimeInput.value = timeInput.value;
+    }
+    if (s.suggestion && habits[i]) {
+      habits[i].short = s.suggestion;
+    }
+  });
+  save();
+  document.getElementById('stackingSection').classList.remove('open');
+  const btn = document.getElementById('stackingSuggestBtn');
+  if (btn) btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1l1.2 3.6L11 6 7.2 7.4 6 11l-1.2-3.6L1 6l3.8-1.4z" stroke="white" stroke-width="1.1" stroke-linejoin="round"/></svg> ✓ Times applied';
+}
+
+function startChallenge() {
   const nameVal = document.getElementById('setupName').value.trim();
   const titleVal = document.getElementById('setupTitle').value.trim();
   const dateVal = document.getElementById('setupDate').value;
@@ -1509,7 +1722,10 @@ function renderDailyView() {
       <div class="daily-chk" onclick="toggle(${dn},${p})">${CHECK_SVG_LG}</div>
       <div class="daily-habit-icon" onclick="toggle(${dn},${p})">${h.icon}</div>
       <div class="daily-habit-info" style="flex:1">
-        <div onclick="toggle(${dn},${p})"><div class="daily-habit-name">${h.name}</div></div>
+        <div onclick="toggle(${dn},${p})">
+          <div class="daily-habit-name">${h.name}</div>
+          ${h.short ? `<div class="daily-habit-short">${h.short}</div>` : ''}
+        </div>
         ${timeSection}
         <div class="daily-habit-notes-wrap" onclick="event.stopPropagation()">
           <button class="daily-notes-toggle ${note?'open':''}" id="nt-toggle-${dn}-${p}" onclick="toggleNote(${dn},${p})">
