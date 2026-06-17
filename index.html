@@ -1146,27 +1146,36 @@ async function suggestHabits(force) {
     const hasRoutine = routine.length > 10;
 
     const systemPrompt = hasRoutine
-      ? `You suggest exactly 6 daily habits for a 30-day challenge, tailored to both the user's goal AND their daily routine. For each habit, also suggest the best time to do it and a one-sentence stacking suggestion based on their routine anchors.
+      ? `You suggest exactly 6 daily habits for a 30-day challenge. Follow this strict priority order:
 
-Respond ONLY with valid JSON — no markdown, no preamble.
-Format: {"habits": [{"name": "...", "short": "...", "icon": "...", "mode": "single|pick|trigger", "time": "HH:MM", "morningTime": "HH:MM", "eveningTime": "HH:MM", "suggestion": "..."}]}
+STEP 1 — Core habits (3-4 habits): Identify the most important, non-negotiable daily habits for the user's specific goal. These MUST appear regardless of their routine. Examples:
+- Body recomposition / fitness → strength training, protein target, progressive overload, sleep/recovery
+- Productivity → deep work block, task prioritization, distraction elimination
+- Finance → expense tracking, no impulse spending, savings contribution
+- Learning → daily study, practice, review
+
+STEP 2 — Complementary habits (2-3 habits): Use the routine to suggest habits that fit naturally and support the goal without duplicating what's already happening. Don't avoid habits just because the user mentions doing something similar — if gym is mentioned, still suggest "Lift Heavy Weights" as a trackable daily habit.
+
+STEP 3 — For ALL habits: Assign times and stacking suggestions based on their actual routine anchors.
 
 Rules:
+- ALL habits must be trackable EVERY SINGLE DAY — no weekly habits (no "meal prep Sunday", "progress photo", "weekly review")
 - name: 2-4 words max
-- short: the daily micro-action (5 words max)  
+- short: the daily micro-action (5 words max)
 - icon: single highly relevant emoji
-- mode: "single" if there's a clear best time from their routine, "pick" if it could go either morning or evening, "trigger" if it's a rule/awareness habit (no time)
-- time: for "single" mode, derive from their routine anchors (HH:MM format)
-- morningTime/eveningTime: for "pick" mode only, derive both from their routine
-- suggestion: one warm sentence referencing their actual routine (e.g. "Right after your morning coffee")
-- For "trigger" mode: no time needed, suggestion is a situational cue
-- Make habits specific, actionable, directly relevant to the goal
-- Don't suggest habits the user is clearly already doing (e.g. if they mention gym daily, don't suggest "Go to gym")`
-      : `You suggest exactly 6 daily habits for a 30-day challenge. Respond ONLY with valid JSON — no markdown, no preamble. Format: {"habits": [{"name": "...", "short": "...", "icon": "...", "mode": "trigger", "time": "", "morningTime": "", "eveningTime": "", "suggestion": ""}]}. Rules: name is 2-4 words max, short is the daily micro-action (5 words max), icon is a single highly relevant emoji. Make habits specific, actionable, and directly relevant to the challenge title. Vary the habits — don't repeat themes.`;
+- mode: "single" if clear time from routine, "pick" if morning/evening ambiguous, "trigger" if rule/awareness habit
+- time: HH:MM derived from routine for "single" mode
+- morningTime/eveningTime: for "pick" mode only
+- suggestion: one warm sentence referencing their actual routine anchors
+- Tone: specific and practical, not generic wellness advice
+
+Respond ONLY with valid JSON — no markdown, no preamble.
+Format: {"habits": [{"name": "...", "short": "...", "icon": "...", "mode": "single|pick|trigger", "time": "HH:MM", "morningTime": "HH:MM", "eveningTime": "HH:MM", "suggestion": "..."}]}`
+      : `You suggest exactly 6 daily habits for a 30-day challenge. Prioritize the most important, non-negotiable daily habits for the user's specific goal — don't suggest generic habits. All habits must be trackable every single day (no weekly habits). Respond ONLY with valid JSON — no markdown, no preamble. Format: {"habits": [{"name": "...", "short": "...", "icon": "...", "mode": "trigger", "time": "", "morningTime": "", "eveningTime": "", "suggestion": ""}]}. Rules: name is 2-4 words max, short is the daily micro-action (5 words max), icon is a single highly relevant emoji. Make habits specific, actionable, and directly relevant to the challenge title.`;
 
     const userMessage = hasRoutine
-      ? `Challenge: "${title}". My daily routine: "${routine}". Suggest 6 habits with times and stacking suggestions tailored to my routine. JSON only.`
-      : `Suggest 6 daily habits for a 30-day challenge called: "${title}". JSON only.`;
+      ? `Challenge goal: "${title}". My daily routine: "${routine}". First identify the 3-4 most critical daily habits for "${title}" (these are non-negotiable core habits that must appear). Then use my routine to suggest 2-3 complementary habits and assign times/stacking for all 6. Remember: NO weekly habits — everything must be trackable daily. JSON only.`
+      : `Challenge goal: "${title}". First identify the 3-4 most critical daily habits specifically for achieving "${title}" — these are non-negotiable and must appear. Then add 2-3 complementary supporting habits. NO weekly habits — everything must be trackable every single day. JSON only.`;
 
     const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
       method: 'POST',
