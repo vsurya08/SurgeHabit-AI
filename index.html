@@ -1736,7 +1736,10 @@ async function maybeGenerateReflection(dn, doneCt) {
 }
 
 function renderDailyView() {
-  const today=currentDay(), dn=today>0?today:1;
+  const today=currentDay();
+  const dn=today>0?today:1;
+  // Safety check — if today is 0 (challenge hasn't started) show Day 1 UI but with empty notes
+  const notesDay = today>0 ? dn : null;
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   const doneCt=habits.filter((_,p)=>checked[dn+'_'+p]).length;
   const greeting = userName ? `${userName} —` : '';
@@ -1756,7 +1759,7 @@ function renderDailyView() {
 
   const habitRows=habits.map((h,p)=>{
     const on=checked[dn+'_'+p];
-    const note = notes[dn+'_'+p] || '';
+    const note = notesDay ? (notes[notesDay+'_'+p] || '') : '';
     const hasNote = !!note;
     const timeSection = h.time ? `
       <div class="daily-habit-time" onclick="event.stopPropagation()">
