@@ -4,6 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SurgeHabit AI</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1a1a18" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="SurgeHabit" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+
+<!-- SEO / Social -->
+<meta name="description" content="AI-powered 30-day habit tracker. Define your challenge, track daily, sync everywhere." />
+<meta property="og:title" content="SurgeHabit AI" />
+<meta property="og:description" content="Build habits that stick. AI suggests your habits, you track them daily." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://vsurya08.github.io/SurgeHabit-AI/" />
 <!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-K1R1KM2W9N"></script>
 <script>
@@ -490,6 +506,32 @@
   .setup-habit-row.suggested { animation: habitFadeIn 0.25s ease both; }
 
   /* Feedback */
+  /* PWA install nudge */
+  .pwa-nudge {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: white;
+    border-radius: 12px;
+    padding: 12px 16px;
+    max-width: 320px;
+    width: calc(100% - 32px);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    z-index: 999;
+    animation: nudge-in 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes nudge-in { from { opacity:0; transform:translateX(-50%) translateY(16px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+  .pwa-nudge-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .pwa-nudge-text { flex: 1; }
+  .pwa-nudge-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .pwa-nudge-sub { font-size: 11px; opacity: 0.75; line-height: 1.4; }
+  .pwa-nudge-close { font-size: 16px; opacity: 0.5; cursor: pointer; flex-shrink: 0; padding: 2px 4px; background: none; border: none; color: white; }
+
   .feedback-fab {
     position: fixed;
     bottom: 28px;
@@ -1469,6 +1511,7 @@ function launchApp() {
   document.getElementById('appTitle').innerHTML = b ? `${a}<br><em>${b}</em>` : `<em>${a}</em>`;
   document.getElementById('appDateLabel').textContent = 'Starting ' + parseLocalDate(startDate).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
   loadDailyQuote(); render();
+  maybeShowPwaNudge();
 }
 
 function confirmReset() {
@@ -1988,6 +2031,50 @@ if (isInAppBrowser()) {
     const w = document.getElementById('iabWarning');
     if (w) w.classList.add('show');
   });
+}
+
+// PWA install nudge — shown once after challenge starts, on mobile only
+function maybeShowPwaNudge() {
+  // Don't show if already dismissed, already installed, or on desktop
+  if (localStorage.getItem('pwa_nudge_dismissed')) return;
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  if (window.navigator.standalone) return; // iOS already installed
+  if (window.innerWidth > 768) return; // desktop — skip
+
+  setTimeout(() => {
+    // Detect iOS vs Android for different instructions
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const instructions = isIOS
+      ? 'Tap the Share button (⬆) then "Add to Home Screen"'
+      : 'Tap the menu (⋮) then "Add to Home Screen" or "Install app"';
+
+    const nudge = document.createElement('div');
+    nudge.className = 'pwa-nudge';
+    nudge.id = 'pwaNudge';
+    nudge.innerHTML = `
+      <div class="pwa-nudge-icon">📲</div>
+      <div class="pwa-nudge-text">
+        <div class="pwa-nudge-title">Add SurgeHabit to your home screen</div>
+        <div class="pwa-nudge-sub">${instructions} for daily reminders</div>
+      </div>
+      <button class="pwa-nudge-close" onclick="dismissPwaNudge()">✕</button>
+    `;
+    document.body.appendChild(nudge);
+
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => dismissPwaNudge(), 8000);
+  }, 2000); // wait 2 seconds after launch so it doesn't interrupt setup
+}
+
+function dismissPwaNudge() {
+  const nudge = document.getElementById('pwaNudge');
+  if (nudge) {
+    nudge.style.opacity = '0';
+    nudge.style.transform = 'translateX(-50%) translateY(16px)';
+    nudge.style.transition = 'all 0.2s ease';
+    setTimeout(() => nudge.remove(), 200);
+  }
+  localStorage.setItem('pwa_nudge_dismissed', '1');
 }
 
 function handleSignIn() {
