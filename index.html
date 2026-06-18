@@ -215,6 +215,10 @@
   .pillar.p3 .pillar-pct { color: var(--c3); } .pillar.p4 .pillar-pct { color: var(--c4); }
   .pillar.p5 .pillar-pct { color: var(--c5); } .pillar.p6 .pillar-pct { color: var(--c6); }
   .pillar-pct-lbl { font-size: clamp(8px, 1.8vw, 10px); color: var(--muted); }
+  .pillar-streak { font-size: clamp(8px, 1.8vw, 10px); font-weight: 500; color: #d4720a; }
+  .pillar-streak.cold { color: var(--border); }
+  .daily-habit-streak { font-size: 11px; color: #d4720a; font-weight: 500; margin-top: 2px; }
+  .daily-habit-streak.at-risk { color: var(--muted); }
   .pillar-bar-track { height: 3px; border-radius: 3px; background: rgba(0,0,0,0.08); overflow: hidden; }
   .pillar-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s cubic-bezier(0.4,0,0.2,1); }
   .pillar.p1 .pillar-bar-fill { background: var(--c1); } .pillar.p2 .pillar-bar-fill { background: var(--c2); }
@@ -1554,16 +1558,45 @@ function toggle(day, p) { checked[day+'_'+p] = !checked[day+'_'+p]; save(); rend
 
 function habitCompletion(p) { let d=0; for(let i=1;i<=30;i++) if(checked[i+'_'+p]) d++; return d; }
 
+// Calculate current streak for a habit (consecutive days from today backwards)
+function habitStreak(p) {
+  const today = currentDay();
+  if (today <= 0) return 0;
+  let streak = 0;
+  for (let d = today; d >= 1; d--) {
+    if (checked[d + '_' + p]) {
+      streak++;
+    } else {
+      break; // any gap breaks the streak — 1-day retroactive is enforced at UI level
+    }
+  }
+  return streak;
+}
+
+// Is today's streak at risk (habit not checked today, streak > 0)?
+function streakAtRisk(p) {
+  const today = currentDay();
+  if (today <= 0) return false;
+  return !checked[today + '_' + p] && habitStreak(p) > 0;
+}
+
 function renderPillars() {
   document.getElementById('pillars').style.gridTemplateColumns = `repeat(${habits.length}, minmax(0, 1fr))`;
   const container = document.getElementById('pillars');
   container.innerHTML = habits.map((h,i) => {
     const done = habitCompletion(i), pct = Math.round(done/30*100);
+    const streak = habitStreak(i);
+    const streakEl = streak > 0
+      ? `<span class="pillar-streak">🔥${streak}</span>`
+      : `<span class="pillar-streak cold">–</span>`;
     return `<div class="pillar ${COLORS[i]}" draggable="true" data-index="${i}">
       <div class="pillar-icon">${h.icon}</div>
       <div class="pillar-name">${h.name}</div>
       <div class="pillar-footer">
-        <div class="pillar-pct-row"><span class="pillar-pct">${pct}%</span><span class="pillar-pct-lbl">${done}/30</span></div>
+        <div class="pillar-pct-row">
+          <span class="pillar-pct">${pct}%</span>
+          ${streakEl}
+        </div>
         <div class="pillar-bar-track"><div class="pillar-bar-fill" style="width:${pct}%"></div></div>
       </div></div>`;
   }).join('');
@@ -1643,7 +1676,9 @@ function saveHabits() {
 
 function deleteHabit(idx) {
   if(habits.length<=1){alert('You need at least 1 habit.');return;}
-  if(!confirm(`Delete "${habits[idx].name}"? All recorded days for this habit will be lost.`)) return;
+  const streak = habitStreak(idx);
+  const streakWarning = streak > 0 ? `\n\nYou have a 🔥 ${streak} day streak on "${habits[idx].name}". Deleting will lose it permanently.` : '';
+  if(!confirm(`Delete "${habits[idx].name}"? All recorded days for this habit will be lost.${streakWarning}\n\nDo you still want to proceed?`)) return;
   habits.splice(idx,1);
   const nc={}, nn={};
   for(let d=1;d<=30;d++){
@@ -1757,13 +1792,18 @@ async function maybeGenerateReflection(dn, doneCt) {
   }).join('; ');
 
   try {
+    const atRiskHabits = habits.filter((h,p) => streakAtRisk(p)).map(h => h.name);
+    const atRiskNote = atRiskHabits.length > 0
+      ? ` Also note that ${atRiskHabits.join(', ')} ${atRiskHabits.length===1?'has':'have'} an active streak at risk today — weave in a warm motivational nudge to complete ${atRiskHabits.length===1?'it':'them'} before the day ends.`
+      : '';
+
     const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
         max_tokens: 150,
-        system: `You write short, warm, encouraging end-of-day reflections for a habit tracker app. Respond with 1-2 sentences only, no preamble, no quotes around the text. Tone: supportive friend, not a coach lecturing. Acknowledge what they did (and what they missed, gently, without guilt). If they wrote notes, weave in something from them naturally. If a note describes specific foods for a nutrition-related habit (e.g. protein, calories), give a rough estimate using words like "roughly" or "around" with a range, not a single exact number. If the note is vague (e.g. just "ate well" or no food details), don't estimate at all — acknowledge it generally instead. Never state an estimate as a precise fact.`,
+        system: `You write short, warm, encouraging end-of-day reflections for a habit tracker app. Respond with 1-2 sentences only, no preamble, no quotes around the text. Tone: supportive friend, not a coach lecturing. Acknowledge what they did (and what they missed, gently, without guilt). If they wrote notes, weave in something from them naturally. If a note describes specific foods for a nutrition-related habit (e.g. protein, calories), give a rough estimate using words like "roughly" or "around" with a range, not a single exact number. If the note is vague (e.g. just "ate well" or no food details), don't estimate at all — acknowledge it generally instead. Never state an estimate as a precise fact.${atRiskNote}`,
         messages: [{ role: 'user', content: `Challenge: "${challengeTitle}". Day ${dn} of 30. Habits today — ${habitSummary}. Write a short reflection.` }]
       })
     });
@@ -1831,6 +1871,16 @@ function renderDailyView() {
         <div onclick="toggle(${dn},${p})">
           <div class="daily-habit-name">${h.name}</div>
           ${h.short ? `<div class="daily-habit-short">${h.short}</div>` : ''}
+          ${(() => {
+            const streak = habitStreak(p);
+            const now = new Date();
+            const isAfterNoon = now.getHours() >= 12;
+            const doneToday = !!checked[dn+'_'+p];
+            if (doneToday && streak > 0) return `<div class="daily-habit-streak">🔥 ${streak} day streak</div>`;
+            if (!doneToday && streak > 0 && isAfterNoon) return `<div class="daily-habit-streak at-risk">Streak at risk — check in to keep your 🔥 ${streak} day streak</div>`;
+            if (!doneToday && streak > 0 && !isAfterNoon) return `<div class="daily-habit-streak">🔥 ${streak} — check in today to keep it going</div>`;
+            return '';
+          })()}
         </div>
         ${timeSection}
         <div class="daily-habit-notes-wrap" onclick="event.stopPropagation()">
@@ -1867,15 +1917,25 @@ function renderDailyView() {
 
 function renderWeeklyView() {
   const today=currentDay(); let html='', dayNum=1;
+  const lastEditable = today; // today and yesterday (today-1) are editable
   WEEKS.forEach(w=>{
     const is2=w.days===2;
     html+=`<div class="week"><div class="week-head"><span class="week-label">${w.label}</span><span class="week-theme">${w.theme}</span><div class="week-line"></div></div><div class="day-grid${is2?' day-grid-2':''}">`;
     for(let d=0;d<w.days;d++){
       const dn=dayNum, allDone=habits.every((_,p)=>checked[dn+'_'+p]), isToday=dn===today;
+      const isEditable = dn >= today - 1 && dn <= today; // today and yesterday only
       html+=`<div class="day-card${allDone?' is-perfect':''}${isToday?' is-today':''}">
         <div class="day-num-row"><span class="day-num">${dn}</span><div class="today-dot"></div></div>
         <div class="checks">`;
-      habits.forEach((h,p)=>{const on=checked[dn+'_'+p]; html+=`<div class="chk-row p${p}${on?' done':''}" onclick="toggle(${dn},${p})"><div class="chk-box${on?' on':''}">${CHECK_SVG}</div><span class="chk-lbl">${h.short}</span></div>`;});
+      habits.forEach((h,p)=>{
+        const on=checked[dn+'_'+p];
+        if (isEditable) {
+          html+=`<div class="chk-row p${p}${on?' done':''}" onclick="toggle(${dn},${p})"><div class="chk-box${on?' on':''}">${CHECK_SVG}</div><span class="chk-lbl">${h.short}</span></div>`;
+        } else {
+          // Read-only — show historical state, no click handler
+          html+=`<div class="chk-row p${p}${on?' done':''}" style="cursor:default;opacity:${dn>today?'0.3':'1'}"><div class="chk-box${on?' on':''}" style="pointer-events:none">${CHECK_SVG}</div><span class="chk-lbl">${h.short}</span></div>`;
+        }
+      });
       html+=`</div></div>`; dayNum++;
     }
     html+='</div></div>';
@@ -2035,35 +2095,74 @@ if (isInAppBrowser()) {
 
 // PWA install nudge — shown once after challenge starts, on mobile only
 function maybeShowPwaNudge() {
-  // Don't show if already dismissed, already installed, or on desktop
   if (localStorage.getItem('pwa_nudge_dismissed')) return;
   if (window.matchMedia('(display-mode: standalone)').matches) return;
   if (window.navigator.standalone) return; // iOS already installed
-  if (window.innerWidth > 768) return; // desktop — skip
+
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  const isMobile = isIOS || isAndroid;
+  const isChrome = /Chrome/.test(ua) && !/Edg/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
+  const isEdge = /Edg/.test(ua);
+
+  // Already installed as PWA — skip
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+
+  let icon, title, instructions;
+
+  if (isIOS && isSafari) {
+    icon = '📲';
+    title = 'Add to your Home Screen';
+    instructions = 'Tap the Share button ⬆ at the bottom → "Add to Home Screen"';
+  } else if (isIOS && isChrome) {
+    icon = '📲';
+    title = 'Add to your Home Screen';
+    instructions = 'Tap the Share button ⬆ → "Add to Home Screen". Tip: works best in Safari on iPhone.';
+  } else if (isAndroid && isChrome) {
+    icon = '📲';
+    title = 'Install SurgeHabit AI';
+    instructions = 'Tap the menu ⋮ → "Add to Home Screen" or "Install app"';
+  } else if (isAndroid) {
+    icon = '📲';
+    title = 'Add to your Home Screen';
+    instructions = 'Tap the browser menu → "Add to Home Screen"';
+  } else if (isEdge) {
+    icon = '💻';
+    title = 'Install SurgeHabit AI';
+    instructions = 'Click the install icon ⊕ in the address bar';
+  } else if (isChrome) {
+    icon = '💻';
+    title = 'Install SurgeHabit AI';
+    instructions = 'Click the install icon ⊕ in the address bar';
+  } else {
+    // Check for Mac Safari specifically
+    const isMacSafari = /Macintosh/.test(ua) && isSafari;
+    if (isMacSafari) {
+      icon = '🖥️';
+      title = 'Add to your Dock';
+      instructions = 'In Safari, go to File → "Add to Dock" to open SurgeHabit AI like a native Mac app (requires macOS Sonoma or later)';
+    } else {
+      return;
+    }
+  }
 
   setTimeout(() => {
-    // Detect iOS vs Android for different instructions
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const instructions = isIOS
-      ? 'Tap the Share button (⬆) then "Add to Home Screen"'
-      : 'Tap the menu (⋮) then "Add to Home Screen" or "Install app"';
-
     const nudge = document.createElement('div');
     nudge.className = 'pwa-nudge';
     nudge.id = 'pwaNudge';
     nudge.innerHTML = `
-      <div class="pwa-nudge-icon">📲</div>
+      <div class="pwa-nudge-icon">${icon}</div>
       <div class="pwa-nudge-text">
-        <div class="pwa-nudge-title">Add SurgeHabit to your home screen</div>
-        <div class="pwa-nudge-sub">${instructions} for daily reminders</div>
+        <div class="pwa-nudge-title">${title}</div>
+        <div class="pwa-nudge-sub">${instructions}</div>
       </div>
       <button class="pwa-nudge-close" onclick="dismissPwaNudge()">✕</button>
     `;
     document.body.appendChild(nudge);
-
-    // Auto-dismiss after 8 seconds
-    setTimeout(() => dismissPwaNudge(), 8000);
-  }, 2000); // wait 2 seconds after launch so it doesn't interrupt setup
+    setTimeout(() => dismissPwaNudge(), 10000);
+  }, 2500);
 }
 
 function dismissPwaNudge() {
