@@ -1562,12 +1562,17 @@ function habitCompletion(p) { let d=0; for(let i=1;i<=30;i++) if(checked[i+'_'+p
 function habitStreak(p) {
   const today = currentDay();
   if (today <= 0) return 0;
+  // Start from today — if today isn't checked, check yesterday first
+  // This shows the active streak even before the user checks in today
   let streak = 0;
-  for (let d = today; d >= 1; d--) {
+  // If today is checked, count from today
+  // If today isn't checked yet, count from yesterday (streak is still "alive")
+  const startDay = checked[today + '_' + p] ? today : today - 1;
+  for (let d = startDay; d >= 1; d--) {
     if (checked[d + '_' + p]) {
       streak++;
     } else {
-      break; // any gap breaks the streak — 1-day retroactive is enforced at UI level
+      break;
     }
   }
   return streak;
@@ -1588,7 +1593,7 @@ function renderPillars() {
     const streak = habitStreak(i);
     const streakEl = streak > 0
       ? `<span class="pillar-streak">🔥${streak}</span>`
-      : `<span class="pillar-streak cold">–</span>`;
+      : ``;
     return `<div class="pillar ${COLORS[i]}" draggable="true" data-index="${i}">
       <div class="pillar-icon">${h.icon}</div>
       <div class="pillar-name">${h.name}</div>
