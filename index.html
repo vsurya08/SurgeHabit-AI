@@ -1935,10 +1935,10 @@ function renderWeeklyView() {
       habits.forEach((h,p)=>{
         const on=checked[dn+'_'+p];
         if (isEditable) {
-          html+=`<div class="chk-row p${p}${on?' done':''}" onclick="toggle(${dn},${p})"><div class="chk-box${on?' on':''}">${CHECK_SVG}</div><span class="chk-lbl">${h.short}</span></div>`;
+          html+=`<div class="chk-row p${p}${on?' done':''}" onclick="toggle(${dn},${p})"><div class="chk-box${on?' on':''}">${CHECK_SVG}</div><span class="chk-lbl">${h.name}</span></div>`;
         } else {
           // Read-only — show historical state, no click handler
-          html+=`<div class="chk-row p${p}${on?' done':''}" style="cursor:default;opacity:${dn>today?'0.3':'1'}"><div class="chk-box${on?' on':''}" style="pointer-events:none">${CHECK_SVG}</div><span class="chk-lbl">${h.short}</span></div>`;
+          html+=`<div class="chk-row p${p}${on?' done':''}" style="cursor:default;opacity:${dn>today?'0.3':'1'}"><div class="chk-box${on?' on':''}" style="pointer-events:none">${CHECK_SVG}</div><span class="chk-lbl">${h.name}</span></div>`;
         }
       });
       html+=`</div></div>`; dayNum++;
