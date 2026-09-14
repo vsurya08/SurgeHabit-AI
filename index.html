@@ -1548,9 +1548,8 @@ function applyStackingTimes(suggestions) {
     if (setupTimeInput && timeInput && timeInput.value) {
       setupTimeInput.value = timeInput.value;
     }
-    if (s.suggestion && habits[i]) {
-      habits[i].short = s.suggestion;
-    }
+    // Stacking suggestion is NOT written to h.short — h.short is reserved
+    // for the user's own micro-action label (e.g. "45 mins of exercise")
   });
   save();
   document.getElementById('stackingSection').classList.remove('open');
@@ -1595,15 +1594,13 @@ async function startChallenge() {
     const time = timeEl ? timeEl.value : '';
     const iconEl = document.getElementById('sicon'+i);
     const icon = iconEl ? iconEl.textContent.trim() : SETUP_DEFAULTS[i].icon;
-    // Read stacking suggestion from hidden field — write to h.short as daily subtitle
-    const suggestionEl = document.getElementById('ssuggestion'+i);
-    const suggestion = suggestionEl ? suggestionEl.value.trim() : '';
-    newHabits.push({ name, short: suggestion || short, icon, time });
+    // Use h.short (user's micro-action label) — never overwrite with AI stacking suggestion
+    newHabits.push({ name, short, icon, time });
   }
   if (newHabits.length < 2) { alert('Please add at least 2 habits to get started.'); return; }
   userName = nameVal;
   challengeTitle = titleVal || '30-Day Challenge';
-  habits = newHabits; checked = {};
+  habits = newHabits; checked = {}; freezes = {}; notifications = [];
   startDate = dateVal; // store as YYYY-MM-DD string, never UTC ISO
   save(); launchApp();
 }
@@ -1618,6 +1615,7 @@ function launchApp() {
   document.getElementById('appTitle').innerHTML = b ? `${a}<br><em>${b}</em>` : `<em>${a}</em>`;
   document.getElementById('appDateLabel').textContent = 'Starting ' + parseLocalDate(startDate).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
   loadDailyQuote(); render();
+  maybeConsumeFreeze();
   renderNotifications();
   maybeShowPwaNudge();
 }
@@ -1658,7 +1656,64 @@ function currentDay() {
   const today = new Date(); today.setHours(0,0,0,0);
   return Math.max(0, Math.min(Math.floor((today-start)/86400000)+1, 30));
 }
-function toggle(day, p) { checked[day+'_'+p] = !checked[day+'_'+p]; save(); render(); }
+function toggle(day, p) {
+  checked[day+'_'+p] = !checked[day+'_'+p];
+  save(); render();
+  // Check if this habit just hit a 7-day streak milestone
+  maybeAwardFreeze(p);
+}
+
+// Award a freeze when a habit hits a 7-day streak
+function maybeAwardFreeze(p) {
+  const streak = habitStreak(p);
+  if (streak > 0 && streak % 7 === 0) {
+    const current = freezes[p] || 0;
+    if (current < 2) {
+      freezes[p] = current + 1;
+      save();
+      addNotification(
+        'freeze_earned',
+        `🔥 ${streak}-day streak on ${habits[p]?.name}!`,
+        `You've earned a ❄️ Streak Freeze — it'll automatically protect your streak if you miss a day.`,
+        '🏆'
+      );
+    }
+  }
+}
+
+// On app load — check if any habit missed yesterday and auto-consume a freeze
+function maybeConsumeFreeze() {
+  const today = currentDay();
+  if (today <= 1) return; // nothing to check on Day 1
+  const yesterday = today - 1;
+  let freezeUsed = [];
+
+  habits.forEach((h, p) => {
+    const checkedYesterday = !!checked[yesterday + '_' + p];
+    const checkedDayBefore = yesterday > 1 ? !!checked[(yesterday-1) + '_' + p] : true;
+    const hasActiveStreak = checkedDayBefore; // had a streak going into yesterday
+    const hasFreezes = (freezes[p] || 0) > 0;
+
+    if (!checkedYesterday && hasActiveStreak && hasFreezes) {
+      // Auto-consume freeze
+      freezes[p] = (freezes[p] || 0) - 1;
+      // Mark yesterday as "freeze protected" so streak calculation sees it as checked
+      checked[yesterday + '_' + p + '_frozen'] = true;
+      freezeUsed.push({ name: h.name, streak: habitStreak(p), p });
+    }
+  });
+
+  if (freezeUsed.length > 0) {
+    save();
+    const names = freezeUsed.map(f => `${f.name} (🔥${f.streak})`).join(', ');
+    addNotification(
+      'freeze_used',
+      `❄️ Streak freeze${freezeUsed.length > 1 ? 's' : ''} used yesterday`,
+      `${names} ${freezeUsed.length > 1 ? 'are' : 'is'} protected. Log today to keep ${freezeUsed.length > 1 ? 'them' : 'it'} going.`,
+      '❄️'
+    );
+  }
+}
 
 function habitCompletion(p) { let d=0; for(let i=1;i<=30;i++) if(checked[i+'_'+p]) d++; return d; }
 
@@ -1666,14 +1721,11 @@ function habitCompletion(p) { let d=0; for(let i=1;i<=30;i++) if(checked[i+'_'+p
 function habitStreak(p) {
   const today = currentDay();
   if (today <= 0) return 0;
-  // Start from today — if today isn't checked, check yesterday first
-  // This shows the active streak even before the user checks in today
-  let streak = 0;
-  // If today is checked, count from today
-  // If today isn't checked yet, count from yesterday (streak is still "alive")
   const startDay = checked[today + '_' + p] ? today : today - 1;
+  let streak = 0;
   for (let d = startDay; d >= 1; d--) {
-    if (checked[d + '_' + p]) {
+    // Count both checked days and freeze-protected days
+    if (checked[d + '_' + p] || checked[d + '_' + p + '_frozen']) {
       streak++;
     } else {
       break;
@@ -1802,7 +1854,7 @@ function deleteHabit(idx) {
   checked=nc; notes=nn; reflections={}; save(); render(); renderSettingsRows();
 }
 
-function resetProgress() { if(!confirm('Reset all checked days?')) return; checked={}; save(); render(); }
+function resetProgress() { if(!confirm('Reset all checked days?')) return; checked={}; freezes={}; notifications=[]; save(); render(); renderNotifications(); }
 
 function toggleSettings() {
   const btn=document.getElementById('settingsToggle'), panel=document.getElementById('settingsPanel');
@@ -1979,7 +2031,7 @@ function renderDailyView() {
       <div class="daily-habit-info" style="flex:1">
         <div onclick="toggle(${dn},${p})">
           <div class="daily-habit-name">${h.name}</div>
-          ${h.short ? `<div class="daily-habit-short">${h.short.length > 60 ? h.short.slice(0,60)+'…' : h.short}</div>` : ''}
+          ${h.short ? `<div class="daily-habit-short">${h.short}</div>` : ''}
           ${(() => {
             const streak = habitStreak(p);
             const now = new Date();
