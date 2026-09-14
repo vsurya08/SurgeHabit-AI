@@ -262,6 +262,22 @@
   .daily-mini-dots { display: flex; gap: 5px; flex-wrap: wrap; max-width: 160px; justify-content: flex-end; }
   .daily-mini-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--paper-dark); }
 
+  /* Morning insight card */
+  .morning-insight {
+    background: linear-gradient(135deg, #faf8f4 0%, #f5f0e8 100%);
+    border: 1px solid #e8e0d0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    display: none;
+  }
+  .morning-insight.show { display: block; }
+  .morning-insight-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+  .morning-insight-item { font-size: 13px; color: var(--ink); line-height: 1.55; padding: 8px 0; border-bottom: 0.5px solid #e8e0d0; }
+  .morning-insight-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .morning-insight-habit { font-size: 11px; font-weight: 500; color: var(--muted); margin-bottom: 3px; }
+  .morning-insight-spinner { width: 11px; height: 11px; border: 2px solid var(--border); border-top-color: var(--muted); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+
   /* Daily reflection */
   .daily-reflection {
     background: linear-gradient(135deg, #f5f1ea 0%, #ede4d8 100%);
@@ -1051,6 +1067,11 @@
       <div class="quote-loading"><div class="quote-spinner"></div> Generating today's quote…</div>
     </div>
 
+    <div class="morning-insight" id="morningInsightCard">
+      <div class="morning-insight-label">✨ This morning</div>
+      <div id="morningInsightContent"></div>
+    </div>
+
     <div class="stats-bar">
       <div class="stat"><span class="stat-val" id="s-day">0</span><span class="stat-lbl">Current day</span></div>
       <div class="stat"><span class="stat-val" id="s-streak">0</span><span class="stat-lbl">Today</span></div>
@@ -1138,7 +1159,7 @@ const HABIT_ICONS_POOL = ["⭐","🏃","🧠","🎯","📖","🎵","🧘","🍎"
 const COLORS = ['p1','p2','p3','p4','p5','p6'];
 const COLOR_VARS = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)'];
 
-let habits = [], checked = {}, notes = {}, reflections = {}, notifications = [], freezes = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
+let habits = [], checked = {}, notes = {}, reflections = {}, notifications = [], freezes = {}, morningInsights = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
 
 const CHECK_SVG = `<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><polyline points="1.5,4.5 3.5,7 7.5,2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const CHECK_SVG_LG = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9.5 10,2.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -1152,7 +1173,7 @@ function lsKey() { return currentUserId ? `_30dc_${currentUserId}` : '_30dc_anon
 // Write to both Firestore (source of truth) and localStorage (cache)
 function save() {
   const data = {
-    habits, checked, notes, reflections, notifications, freezes,
+    habits, checked, notes, reflections, notifications, freezes, morningInsights,
     startDate: startDate || null,
     challengeTitle, userName
   };
@@ -1632,7 +1653,7 @@ async function startChallenge() {
   if (newHabits.length < 2) { alert('Please add at least 2 habits to get started.'); return; }
   userName = nameVal;
   challengeTitle = titleVal || '30-Day Challenge';
-  habits = newHabits; checked = {}; freezes = {}; notifications = [];
+  habits = newHabits; checked = {}; freezes = {}; notifications = []; morningInsights = {};
   startDate = dateVal; // store as YYYY-MM-DD string, never UTC ISO
   save(); launchApp();
 }
@@ -1648,6 +1669,7 @@ function launchApp() {
   document.getElementById('appDateLabel').textContent = 'Starting ' + parseLocalDate(startDate).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
   loadDailyQuote(); render();
   maybeConsumeFreeze();
+  maybeGenerateMorningInsight();
   renderNotifications();
   maybeShowPwaNudge();
 }
@@ -1693,6 +1715,7 @@ function toggle(day, p) {
   checked[day+'_'+p] = !checked[day+'_'+p];
   save(); render();
   maybeAwardFreeze(p);
+  renderMorningInsight();
   // Trigger celebration if all habits just became done
   const isAllDone = habits.every((_,i) => checked[day+'_'+i]);
   if (!wasAllDone && isAllDone && day === currentDay()) {
@@ -2030,10 +2053,114 @@ function saveHabitTime(p) {
 
 // Generate an AI reflection for the day, but only after 9pm local time,
 // only once per day, and only if there's something to reflect on.
+// ── Morning Insight ────────────────────────────────────────
+function renderMorningInsight() {
+  const dn = currentDay() > 0 ? currentDay() : 1;
+  const card = document.getElementById('morningInsightCard');
+  const content = document.getElementById('morningInsightContent');
+  if (!card || !content) return;
+
+  const insight = morningInsights[dn];
+  if (!insight || !insight.insights) { card.classList.remove('show'); return; }
+
+  // Check if all referenced habits are checked — if so hide card
+  const allDone = insight.habitIndices.every(p => checked[dn+'_'+p]);
+  if (allDone) { card.classList.remove('show'); return; }
+
+  card.classList.add('show');
+  content.innerHTML = insight.insights.map(item => `
+    <div class="morning-insight-item">
+      <div class="morning-insight-habit">${habits[item.habitIndex]?.icon || ''} ${habits[item.habitIndex]?.name || ''}</div>
+      ${item.text}
+    </div>`).join('');
+}
+
+async function maybeGenerateMorningInsight() {
+  const dn = currentDay() > 0 ? currentDay() : 1;
+  const today = currentDay();
+
+  // Only from Day 4 onwards
+  if (today < 4) return;
+
+  // Only in the morning (before noon)
+  const now = new Date();
+  if (now.getHours() >= 12) {
+    // Past noon — just render existing insight if any
+    renderMorningInsight();
+    return;
+  }
+
+  // Already generated today
+  if (morningInsights[dn]) { renderMorningInsight(); return; }
+
+  // Show loading state
+  const card = document.getElementById('morningInsightCard');
+  const content = document.getElementById('morningInsightContent');
+  if (!card || !content) return;
+  card.classList.add('show');
+  content.innerHTML = `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)"><div class="morning-insight-spinner"></div>Thinking about your morning…</div>`;
+
+  // Build context for AI
+  const habitContext = habits.map((h, p) => {
+    const recentDays = Math.min(today - 1, 7);
+    const recentChecks = Array.from({length: recentDays}, (_, i) => checked[(today-1-i)+'_'+p] ? 1 : 0);
+    const missedRecently = recentChecks.filter(x => !x).length;
+    const streak = habitStreak(p);
+    const recentNotes = Array.from({length: Math.min(3, today-1)}, (_, i) => notes[(today-1-i)+'_'+p]).filter(Boolean);
+    const recentReflections = Array.from({length: Math.min(3, today-1)}, (_, i) => reflections[today-1-i]).filter(Boolean);
+    return { index: p, name: h.name, icon: h.icon, missedRecently, streak, recentNotes, recentReflections };
+  });
+
+  try {
+    const res = await fetch('https://black-butterfly-3f4e.vsurya08.workers.dev/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 300,
+        system: `You are a warm, supportive morning coach for a habit tracking app. Generate max 2 morning insights to help the user have a great day. 
+
+Priority for insights:
+1. A habit missed 2+ of the last 7 days (struggling) — offer practical advice based on their notes/reflections
+2. A habit with a strong active streak (3+ days) — reinforce momentum with a specific tip
+
+Rules:
+- Each insight is 2-3 sentences max, warm friend tone, ends with one concrete action for today
+- Reference their actual notes or reflections if available — make it feel personal
+- Never generic ("stay motivated!") — always specific to the habit and their data
+- Only pick habits where you have something genuinely useful to say
+
+Respond ONLY with valid JSON, no markdown:
+{"insights": [{"habitIndex": 0, "text": "..."}], "habitIndices": [0]}`,
+        messages: [{ role: 'user', content: `Challenge: "${challengeTitle}". Day ${today} of 30. Habits and recent data: ${JSON.stringify(habitContext)}. Generate morning insights. JSON only.` }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    const cleaned = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
+    const parsed = JSON.parse(cleaned);
+
+    morningInsights[dn] = {
+      insights: parsed.insights,
+      habitIndices: parsed.habitIndices || parsed.insights.map(i => i.habitIndex)
+    };
+    save();
+    renderMorningInsight();
+
+  } catch(e) {
+    console.warn('Morning insight failed:', e);
+    card.classList.remove('show');
+  }
+}
+
 async function maybeGenerateReflection(dn, doneCt) {
   if (reflections[dn]) return; // already generated
   const now = new Date();
-  if (now.getHours() < 21) return; // only after 9pm local
+  const isPastDay = dn < currentDay();
+  const isAfter9pm = now.getHours() >= 21;
+  // Generate if it's a past day (no time restriction) OR today after 9pm
+  if (!isPastDay && !isAfter9pm) return;
   if (doneCt === 0 && !habits.some((h,p) => notes[dn+'_'+p])) return; // nothing to reflect on
 
   const el = document.getElementById('dailyReflection');
@@ -2295,7 +2422,7 @@ function submitFeedback() {
 
 function loadDataIntoApp(s) {
   habits = s.habits; checked = s.checked || {}; notes = s.notes || {}; reflections = s.reflections || {};
-  notifications = s.notifications || []; freezes = s.freezes || {};
+  notifications = s.notifications || []; freezes = s.freezes || {}; morningInsights = s.morningInsights || {};
   startDate = s.startDate ? s.startDate.slice(0, 10) : null;
   challengeTitle = s.challengeTitle || '30-Day Challenge';
   userName = s.userName || '';
