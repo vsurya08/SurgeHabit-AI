@@ -1021,9 +1021,9 @@
 
     <div class="stats-bar">
       <div class="stat"><span class="stat-val" id="s-day">0</span><span class="stat-lbl">Current day</span></div>
-      <div class="stat"><span class="stat-val" id="s-streak">0</span><span class="stat-lbl">Streak</span></div>
+      <div class="stat"><span class="stat-val" id="s-streak">0</span><span class="stat-lbl">Today</span></div>
       <div class="stat"><span class="stat-val" id="s-pct">0%</span><span class="stat-lbl">Completion</span></div>
-      <div class="stat"><span class="stat-val" id="s-perfect">0</span><span class="stat-lbl">Perfect days</span></div>
+      <div class="stat"><span class="stat-val" id="s-perfect">0</span><span class="stat-lbl">Active streaks</span></div>
     </div>
 
     <div class="prog-wrap">
@@ -2116,13 +2116,16 @@ function renderMonthlyView() {
 }
 
 function renderStats() {
-  const n=habits.length; let total=0,done=0,perfect=0,streak=0,going=true;
-  for(let d=1;d<=30;d++){let dd=0; for(let p=0;p<n;p++){total++; if(checked[d+'_'+p]){done++;dd++;}} if(dd===n)perfect++; if(going&&dd>0)streak++; else going=false;}
-  const pct=Math.round(done/total*100);
+  const n=habits.length; let total=0,done=0,streak=0,going=true;
+  const dn = currentDay() > 0 ? currentDay() : 1;
+  for(let d=1;d<=30;d++){let dd=0; for(let p=0;p<n;p++){total++; if(checked[d+'_'+p]){done++;dd++;}} if(going&&dd>0)streak++; else going=false;}
+  const pct=total?Math.round(done/total*100):0;
+  const activeStreaks = habits.filter((_,p) => habitStreak(p) > 0).length;
+  const todayDone = habits.filter((_,p) => checked[dn+'_'+p]).length;
   document.getElementById('s-day').textContent=Math.min(currentDay(),30);
-  document.getElementById('s-streak').textContent=streak;
+  document.getElementById('s-streak').textContent=todayDone+'/'+n;
   document.getElementById('s-pct').textContent=pct+'%';
-  document.getElementById('s-perfect').textContent=perfect;
+  document.getElementById('s-perfect').textContent=activeStreaks;
   document.getElementById('prog-fill').style.width=pct+'%';
   document.getElementById('prog-pct-label').textContent=done+' / '+total+' checks';
 }
@@ -2566,8 +2569,8 @@ function exportProgress() {
   for(let d=1;d<=30;d++){let dd=0; for(let p=0;p<n;p++){total++; if(checked[d+'_'+p]){done++;dd++;}} if(dd===n)perfect++; if(going&&dd>0)streak++; else going=false;}
   out.push('## Overall Stats');
   out.push(`- Completion: ${Math.round(done/total*100)}% (${done}/${total} checks)`);
-  out.push(`- Streak: ${streak} days`);
-  out.push(`- Perfect days: ${perfect}`);
+  out.push(`- Overall streak: ${streak} days`);
+  out.push(`- Active streaks: ${habits.filter((_,p) => habitStreak(p) > 0).length}`);
   out.push('');
 
   // Per-habit summary
