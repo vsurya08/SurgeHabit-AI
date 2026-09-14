@@ -585,6 +585,38 @@
   .pwa-nudge-sub { font-size: 11px; opacity: 0.75; line-height: 1.4; }
   .pwa-nudge-close { font-size: 16px; opacity: 0.5; cursor: pointer; flex-shrink: 0; padding: 2px 4px; background: none; border: none; color: white; }
 
+  /* Celebration animation */
+  .celebration-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    display: none;
+  }
+  .celebration-overlay.show { display: block; }
+  .celebration-message {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.5);
+    background: white;
+    border-radius: 16px;
+    padding: 24px 32px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .celebration-message.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  .celebration-emoji { font-size: 48px; margin-bottom: 8px; }
+  .celebration-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--ink); margin-bottom: 4px; }
+  .celebration-sub { font-size: 13px; color: var(--muted); }
+
   .feedback-fab {
     position: fixed;
     bottom: 28px;
@@ -1657,10 +1689,75 @@ function currentDay() {
   return Math.max(0, Math.min(Math.floor((today-start)/86400000)+1, 30));
 }
 function toggle(day, p) {
+  const wasAllDone = habits.every((_,i) => checked[day+'_'+i]);
   checked[day+'_'+p] = !checked[day+'_'+p];
   save(); render();
-  // Check if this habit just hit a 7-day streak milestone
   maybeAwardFreeze(p);
+  // Trigger celebration if all habits just became done
+  const isAllDone = habits.every((_,i) => checked[day+'_'+i]);
+  if (!wasAllDone && isAllDone && day === currentDay()) {
+    triggerCelebration();
+  }
+}
+
+function triggerCelebration() {
+  const canvas = document.getElementById('celebrationCanvas');
+  const msg = document.getElementById('celebrationMessage');
+  if (!canvas || !msg) return;
+
+  // Show canvas and message
+  canvas.classList.add('show');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  setTimeout(() => msg.classList.add('show'), 100);
+
+  const ctx = canvas.getContext('2d');
+  const colors = ['#4a9d6f', '#2563b0', '#6d4bb0', '#b07a10', '#b0345a', '#0e8aaa', '#f0c080'];
+  const pieces = Array.from({length: 120}, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height - canvas.height,
+    w: Math.random() * 10 + 5,
+    h: Math.random() * 6 + 3,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rotation: Math.random() * 360,
+    rotationSpeed: (Math.random() - 0.5) * 6,
+    vx: (Math.random() - 0.5) * 3,
+    vy: Math.random() * 4 + 2,
+    opacity: 1
+  }));
+
+  let frame = 0;
+  const maxFrames = 180;
+
+  function animate() {
+    if (frame >= maxFrames) {
+      canvas.classList.remove('show');
+      msg.classList.remove('show');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    pieces.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotationSpeed;
+      p.opacity = frame < 120 ? 1 : 1 - (frame - 120) / 60;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.opacity);
+      ctx.translate(p.x + p.w/2, p.y + p.h/2);
+      ctx.rotate(p.rotation * Math.PI / 180);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+    frame++;
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  // Auto-dismiss message after 3 seconds
+  setTimeout(() => msg.classList.remove('show'), 3000);
+  setTimeout(() => canvas.classList.remove('show'), 4000);
 }
 
 // Award a freeze when a habit hits a 7-day streak
@@ -2611,5 +2708,13 @@ function exportProgress() {
 }
 
 </script>
+<!-- Celebration -->
+<canvas id="celebrationCanvas" class="celebration-overlay"></canvas>
+<div class="celebration-message" id="celebrationMessage">
+  <div class="celebration-emoji">🎉</div>
+  <div class="celebration-title">Perfect day!</div>
+  <div class="celebration-sub">All habits done — you're on fire 🔥</div>
+</div>
+
 </body>
 </html>
