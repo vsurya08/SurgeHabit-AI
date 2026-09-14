@@ -510,7 +510,56 @@
   .setup-habit-row.suggested { animation: habitFadeIn 0.25s ease both; }
 
   /* Feedback */
-  /* PWA install nudge */
+  /* Header icons */
+  .header-icons { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .header-icon-btn { position: relative; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+  .header-icon-btn:hover { background: var(--paper-dark); }
+  .header-icon-btn svg { width: 16px; height: 16px; }
+  .notif-badge { position: absolute; top: -3px; right: -3px; background: #e53e3e; color: white; font-size: 9px; font-weight: 600; border-radius: 10px; padding: 1px 4px; min-width: 14px; text-align: center; display: none; }
+  .notif-badge.show { display: block; }
+
+  /* Notification tray */
+  .notif-tray { display: none; position: absolute; top: 52px; right: 0; width: 320px; max-width: calc(100vw - 32px); background: white; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); z-index: 200; overflow: hidden; }
+  .notif-tray.open { display: block; }
+  .notif-tray-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .notif-tray-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .notif-tray-clear { font-size: 11px; color: var(--muted); cursor: pointer; background: none; border: none; font-family: 'DM Sans', sans-serif; }
+  .notif-list { max-height: 340px; overflow-y: auto; }
+  .notif-item { padding: 12px 16px; border-bottom: 0.5px solid var(--border); display: flex; align-items: flex-start; gap: 10px; cursor: pointer; transition: background 0.1s; }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-item:hover { background: var(--paper); }
+  .notif-item.unread { background: #f0f7ff; }
+  .notif-item.unread:hover { background: #e8f2ff; }
+  .notif-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .notif-content { flex: 1; min-width: 0; }
+  .notif-title { font-size: 12px; font-weight: 500; color: var(--ink); margin-bottom: 2px; }
+  .notif-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .notif-time { font-size: 10px; color: var(--border); margin-top: 3px; }
+  .notif-empty { padding: 24px 16px; text-align: center; font-size: 12px; color: var(--muted); }
+
+  /* Settings panel — full overlay */
+  .settings-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 300; }
+  .settings-overlay.open { display: block; }
+  .settings-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 16px 16px 0 0; padding: 0; max-height: 85vh; overflow-y: auto; z-index: 301; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+  .settings-sheet.open { transform: translateY(0); }
+  .settings-sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+  .settings-sheet-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .settings-sheet-title { font-size: 16px; font-weight: 500; color: var(--ink); }
+  .settings-sheet-close { font-size: 20px; color: var(--muted); cursor: pointer; background: none; border: none; line-height: 1; }
+  .settings-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .settings-section:last-child { border-bottom: none; }
+  .settings-section-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 12px; }
+  .settings-action-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 0; background: none; border: none; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--ink); cursor: pointer; text-align: left; }
+  .settings-action-btn svg { flex-shrink: 0; opacity: 0.5; }
+  .settings-action-btn.danger { color: #e53e3e; }
+  .settings-action-btn.danger svg { opacity: 0.7; }
+
+  /* Freeze inventory in settings */
+  .freeze-inv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .freeze-inv-tile { background: var(--paper); border-radius: 8px; padding: 8px; text-align: center; }
+  .freeze-inv-tile-name { font-size: 10px; color: var(--muted); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .freeze-inv-tile-count { font-size: 14px; font-weight: 600; color: #5aa8d4; }
+  .freeze-inv-tile-count.empty { color: var(--border); }
   .pwa-nudge {
     position: fixed;
     bottom: 80px;
@@ -882,10 +931,36 @@
     <header class="site-header">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
         <h1 id="appTitle">30-Day <em>Challenge</em></h1>
-        <div id="userChip" class="user-chip" style="margin-top:6px">
-          <div class="user-avatar-placeholder" id="userInitial">?</div>
-          <span class="user-name" id="userDisplayName">User</span>
-          <button class="signout-btn" onclick="handleSignOut()">Sign out</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;position:relative">
+          <div id="userChip" class="user-chip">
+            <div class="user-avatar-placeholder" id="userInitial">?</div>
+            <span class="user-name" id="userDisplayName">User</span>
+          </div>
+          <!-- Notification bell -->
+          <button class="header-icon-btn" onclick="toggleNotifTray()" title="Notifications">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+              <path d="M8 1.5a4.5 4.5 0 0 1 4.5 4.5c0 2.5.8 3.5 1.5 4.5H2c.7-1 1.5-2 1.5-4.5A4.5 4.5 0 0 1 8 1.5z"/>
+              <path d="M6.5 13.5a1.5 1.5 0 0 0 3 0"/>
+            </svg>
+            <span class="notif-badge" id="notifBadge">0</span>
+          </button>
+          <!-- Settings gear -->
+          <button class="header-icon-btn" onclick="toggleSettings()" title="Settings">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+              <circle cx="8" cy="8" r="2.5"/>
+              <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06"/>
+            </svg>
+          </button>
+          <!-- Notification tray -->
+          <div class="notif-tray" id="notifTray">
+            <div class="notif-tray-header">
+              <span class="notif-tray-title">Notifications</span>
+              <button class="notif-tray-clear" onclick="clearNotifications()">Clear all</button>
+            </div>
+            <div class="notif-list" id="notifList">
+              <div class="notif-empty">No notifications yet</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="header-meta">
@@ -893,6 +968,56 @@
         <button class="reset-challenge-btn" onclick="confirmReset()">← Edit setup</button>
       </div>
     </header>
+
+    <!-- Settings bottom sheet -->
+    <div class="settings-overlay" id="settingsOverlay" onclick="closeSettings()"></div>
+    <div class="settings-sheet" id="settingsPanel">
+      <div class="settings-sheet-handle"></div>
+      <div class="settings-sheet-header">
+        <span class="settings-sheet-title">Settings</span>
+        <button class="settings-sheet-close" onclick="closeSettings()">×</button>
+      </div>
+
+      <!-- Habits section -->
+      <div class="settings-section">
+        <div class="settings-section-label">Habits</div>
+        <div id="settingsRows"></div>
+        <button class="add-habit-btn" id="addHabitBtn" onclick="addHabit()">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><line x1="6.5" y1="1" x2="6.5" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="6.5" x2="12" y2="6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Add a habit
+        </button>
+        <button class="save-btn" onclick="saveHabits()" style="margin-top:12px">Save habits</button>
+      </div>
+
+      <!-- Streak freezes section -->
+      <div class="settings-section">
+        <div class="settings-section-label">❄️ Streak Freezes</div>
+        <div id="freezeInventory" class="freeze-inv-grid"></div>
+        <p class="setup-hint" style="margin-top:8px">Earn a freeze by completing a 7-day streak on any habit. Freezes are used automatically if you miss a day.</p>
+      </div>
+
+      <!-- Progress section -->
+      <div class="settings-section">
+        <div class="settings-section-label">Progress</div>
+        <button class="settings-action-btn" onclick="exportProgress()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Export progress summary
+        </button>
+        <button class="settings-action-btn danger" onclick="resetProgress()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8a6 6 0 1 0 1.5-4M2 4v4h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Reset all progress
+        </button>
+      </div>
+
+      <!-- Account section -->
+      <div class="settings-section">
+        <div class="settings-section-label">Account</div>
+        <button class="settings-action-btn danger" onclick="handleSignOut()">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Sign out
+        </button>
+      </div>
+    </div>
 
     <div class="quote-block" id="quoteBlock">
       <div class="quote-loading"><div class="quote-spinner"></div> Generating today's quote…</div>
@@ -917,24 +1042,6 @@
     <div class="pillars-hint">
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="4" cy="3" r="1" fill="currentColor"/><circle cx="8" cy="3" r="1" fill="currentColor"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="8" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="9" r="1" fill="currentColor"/><circle cx="8" cy="9" r="1" fill="currentColor"/></svg>
       Drag tiles to reorder
-    </div>
-
-    <button class="settings-toggle" id="settingsToggle" onclick="toggleSettings()">
-      <span class="arrow">›</span> Customize habits
-    </button>
-    <div class="settings-panel" id="settingsPanel">
-      <h3 id="settingsHeading">Your habits</h3>
-      <div id="settingsRows"></div>
-      <button class="add-habit-btn" id="addHabitBtn" onclick="addHabit()">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><line x1="6.5" y1="1" x2="6.5" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="1" y1="6.5" x2="12" y2="6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        Add a habit
-      </button>
-      <button class="save-btn" onclick="saveHabits()">Save</button>
-      <button class="reset-btn" onclick="resetProgress()">Reset all progress</button>
-      <button class="export-btn" onclick="exportProgress()">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1v7M3.5 5.5l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 10h11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-        Export progress summary
-      </button>
     </div>
 
     <div class="view-selector">
@@ -1003,7 +1110,7 @@ const HABIT_ICONS_POOL = ["⭐","🏃","🧠","🎯","📖","🎵","🧘","🍎"
 const COLORS = ['p1','p2','p3','p4','p5','p6'];
 const COLOR_VARS = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)'];
 
-let habits = [], checked = {}, notes = {}, reflections = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
+let habits = [], checked = {}, notes = {}, reflections = {}, notifications = [], freezes = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
 
 const CHECK_SVG = `<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><polyline points="1.5,4.5 3.5,7 7.5,2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const CHECK_SVG_LG = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9.5 10,2.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -1017,8 +1124,8 @@ function lsKey() { return currentUserId ? `_30dc_${currentUserId}` : '_30dc_anon
 // Write to both Firestore (source of truth) and localStorage (cache)
 function save() {
   const data = {
-    habits, checked, notes, reflections,
-    startDate: startDate || null, // already a YYYY-MM-DD string
+    habits, checked, notes, reflections, notifications, freezes,
+    startDate: startDate || null,
     challengeTitle, userName
   };
   try { localStorage.setItem(lsKey(), JSON.stringify(data)); } catch(e) {}
@@ -1515,6 +1622,7 @@ function launchApp() {
   document.getElementById('appTitle').innerHTML = b ? `${a}<br><em>${b}</em>` : `<em>${a}</em>`;
   document.getElementById('appDateLabel').textContent = 'Starting ' + parseLocalDate(startDate).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
   loadDailyQuote(); render();
+  renderNotifications();
   maybeShowPwaNudge();
 }
 
@@ -2039,7 +2147,7 @@ function submitFeedback() {
 
 function loadDataIntoApp(s) {
   habits = s.habits; checked = s.checked || {}; notes = s.notes || {}; reflections = s.reflections || {};
-  // Normalise startDate to YYYY-MM-DD regardless of how it was stored
+  notifications = s.notifications || []; freezes = s.freezes || {};
   startDate = s.startDate ? s.startDate.slice(0, 10) : null;
   challengeTitle = s.challengeTitle || '30-Day Challenge';
   userName = s.userName || '';
@@ -2179,6 +2287,115 @@ function dismissPwaNudge() {
     setTimeout(() => nudge.remove(), 200);
   }
   localStorage.setItem('pwa_nudge_dismissed', '1');
+}
+
+// ── Notifications ──────────────────────────────────────────
+
+function addNotification(type, title, sub, icon = '🔔') {
+  const notif = { id: Date.now()+'_'+Math.random(), type, title, sub, icon, read: false, timestamp: new Date().toISOString() };
+  notifications.unshift(notif);
+  if (notifications.length > 20) notifications = notifications.slice(0, 20);
+  save();
+  renderNotifications();
+}
+
+function renderNotifications() {
+  const list = document.getElementById('notifList');
+  const badge = document.getElementById('notifBadge');
+  if (!list || !badge) return;
+  const unread = notifications.filter(n => !n.read).length;
+  badge.textContent = unread;
+  badge.classList.toggle('show', unread > 0);
+  if (notifications.length === 0) {
+    list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+    return;
+  }
+  list.innerHTML = notifications.map(n => `
+    <div class="notif-item ${n.read ? '' : 'unread'}" onclick="markRead('${n.id}')">
+      <div class="notif-icon">${n.icon}</div>
+      <div class="notif-content">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-sub">${n.sub}</div>
+        <div class="notif-time">${timeAgo(n.timestamp)}</div>
+      </div>
+    </div>`).join('');
+}
+
+function markRead(id) {
+  const n = notifications.find(n => n.id === id);
+  if (n) { n.read = true; save(); renderNotifications(); }
+}
+
+function clearNotifications() {
+  notifications = [];
+  save();
+  renderNotifications();
+  closeNotifTray();
+}
+
+function toggleNotifTray() {
+  const tray = document.getElementById('notifTray');
+  if (!tray) return;
+  const isOpen = tray.classList.contains('open');
+  tray.classList.toggle('open', !isOpen);
+  // Mark all as read when opening
+  if (!isOpen) {
+    notifications.forEach(n => n.read = true);
+    save();
+    renderNotifications();
+  }
+}
+
+function closeNotifTray() {
+  document.getElementById('notifTray')?.classList.remove('open');
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs/24)}d ago`;
+}
+
+// Close notif tray when clicking outside
+document.addEventListener('click', (e) => {
+  const tray = document.getElementById('notifTray');
+  const bell = tray?.previousElementSibling;
+  if (tray && !tray.contains(e.target) && !bell?.contains(e.target)) {
+    tray.classList.remove('open');
+  }
+});
+
+// ── Settings sheet ─────────────────────────────────────────
+function toggleSettings() {
+  const sheet = document.getElementById('settingsPanel');
+  const overlay = document.getElementById('settingsOverlay');
+  if (!sheet) return;
+  const isOpen = sheet.classList.contains('open');
+  sheet.classList.toggle('open', !isOpen);
+  overlay.classList.toggle('open', !isOpen);
+  if (!isOpen) { renderSettingsRows(); renderFreezeInventory(); }
+}
+
+function closeSettings() {
+  document.getElementById('settingsPanel')?.classList.remove('open');
+  document.getElementById('settingsOverlay')?.classList.remove('open');
+}
+
+// ── Freeze inventory ───────────────────────────────────────
+function renderFreezeInventory() {
+  const el = document.getElementById('freezeInventory');
+  if (!el) return;
+  el.innerHTML = habits.map((h, i) => {
+    const count = (freezes[i] || 0);
+    return `<div class="freeze-inv-tile">
+      <div class="freeze-inv-tile-name">${h.icon} ${h.name}</div>
+      <div class="freeze-inv-tile-count ${count===0?'empty':''}">❄️${count}</div>
+    </div>`;
+  }).join('');
 }
 
 function handleSignIn() {
