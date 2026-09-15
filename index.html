@@ -165,7 +165,22 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Stats */
-  .stats-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 32px; }
+  /* Summary card */
+  .summary-card { background: white; border: 0.5px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 32px; }
+  .summary-top { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 0.5px solid var(--border); }
+  .summary-stat { padding: 12px 16px; }
+  .summary-stat:first-child { border-right: 0.5px solid var(--border); }
+  .summary-stat-val { font-size: 24px; font-weight: 500; line-height: 1; margin-bottom: 3px; color: var(--ink); }
+  .summary-stat-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .summary-bottom { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .summary-row { display: flex; align-items: center; justify-content: space-between; }
+  .summary-row-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+  .summary-row-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+  .summary-row-name { font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .summary-row-right { font-size: 12px; font-weight: 500; white-space: nowrap; margin-left: 8px; flex-shrink: 0; }
+  .streak-val { color: #d4720a; }
+  .wip-val { color: #b0345a; }
+  .divider-row { height: 0.5px; background: var(--border); }
   .stat { background: var(--paper); padding: 16px 18px; text-align: center; }
   .stat-val { font-family: 'DM Serif Display', serif; font-size: 26px; font-weight: 400; color: var(--ink); display: block; }
   .stat-lbl { font-size: 11px; color: var(--muted); font-weight: 400; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; display: block; }
@@ -179,7 +194,7 @@
   .prog-fill { height: 100%; background: var(--ink); border-radius: 3px; transition: width 0.4s cubic-bezier(0.4,0,0.2,1); }
 
   /* Pillars */
-  .pillars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .pillars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
   .pillars-hint { font-size: 11px; color: var(--muted); margin-bottom: 24px; display: flex; align-items: center; gap: 5px; }
   .pillars-hint svg { opacity: 0.5; flex-shrink: 0; }
   .pillar { border-radius: 10px; padding: clamp(8px,2vw,14px); border: 1px solid transparent; cursor: grab; user-select: none; transition: opacity 0.15s, transform 0.15s, box-shadow 0.15s; min-width: 0; }
@@ -215,7 +230,7 @@
   .pillar.p3 .pillar-pct { color: var(--c3); } .pillar.p4 .pillar-pct { color: var(--c4); }
   .pillar.p5 .pillar-pct { color: var(--c5); } .pillar.p6 .pillar-pct { color: var(--c6); }
   .pillar-pct-lbl { font-size: clamp(8px, 1.8vw, 10px); color: var(--muted); }
-  .pillar-streak { font-size: clamp(8px, 1.8vw, 10px); font-weight: 500; color: #d4720a; }
+  .pillar-streak { font-size: clamp(9px, 2vw, 11px); font-weight: 600; color: #d4720a; background: rgba(255,255,255,0.6); border-radius: 20px; padding: 1px 5px; }
   .pillar-streak.cold { color: var(--border); }
   .daily-habit-streak { font-size: 11px; color: #d4720a; font-weight: 500; margin-top: 2px; }
   .daily-habit-streak.at-risk { color: var(--muted); }
@@ -707,7 +722,7 @@
   .feedback-thanks-icon { font-size: 36px; margin-bottom: 10px; }
   .feedback-thanks h3 { font-family: 'DM Serif Display', serif; font-size: 20px; font-weight: 400; margin-bottom: 6px; }
   .feedback-thanks p { font-size: 13px; color: var(--muted); }
-    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    
     .day-grid { gap: 4px; } .day-card { padding: 7px 5px 6px; } .chk-lbl { max-width: 44px; }
     .setup-habit-short { display: none; }
     .setup-habit-time { display: none; }
@@ -1068,15 +1083,38 @@
     </div>
 
     <div class="morning-insight" id="morningInsightCard">
-      <div class="morning-insight-label">✨ This morning</div>
+      <div class="morning-insight-label" id="insightCardLabel">✨ This morning</div>
       <div id="morningInsightContent"></div>
     </div>
 
-    <div class="stats-bar">
-      <div class="stat"><span class="stat-val" id="s-day">0</span><span class="stat-lbl">Current day</span></div>
-      <div class="stat"><span class="stat-val" id="s-streak">0</span><span class="stat-lbl">Today</span></div>
-      <div class="stat"><span class="stat-val" id="s-pct">0%</span><span class="stat-lbl">Completion</span></div>
-      <div class="stat"><span class="stat-val" id="s-perfect">0</span><span class="stat-lbl">Active streaks</span></div>
+    <div class="summary-card" id="statsCard">
+      <div class="summary-top">
+        <div class="summary-stat">
+          <div class="summary-stat-val" id="s-streak">0/0</div>
+          <div class="summary-stat-lbl">Habits today</div>
+        </div>
+        <div class="summary-stat">
+          <div class="summary-stat-val" id="s-perfect">0</div>
+          <div class="summary-stat-lbl">Active streaks</div>
+        </div>
+      </div>
+      <div class="summary-bottom">
+        <div class="summary-row">
+          <div class="summary-row-left">
+            <span class="summary-row-label">⚡ Superpower</span>
+            <span class="summary-row-name" id="s-tophab">—</span>
+          </div>
+          <span class="summary-row-right streak-val" id="s-tophab-streak"></span>
+        </div>
+        <div class="divider-row"></div>
+        <div class="summary-row">
+          <div class="summary-row-left">
+            <span class="summary-row-label">🔧 Work in Progress</span>
+            <span class="summary-row-name" id="s-weakest">—</span>
+          </div>
+          <span class="summary-row-right wip-val" id="s-weakest-missed"></span>
+        </div>
+      </div>
     </div>
 
     <div class="prog-wrap">
@@ -1867,8 +1905,12 @@ function renderPillars() {
   container.innerHTML = habits.map((h,i) => {
     const done = habitCompletion(i), pct = Math.round(done/30*100);
     const streak = habitStreak(i);
+    const freezeCount = freezes[i] || 0;
     const streakEl = streak > 0
       ? `<span class="pillar-streak">🔥${streak}</span>`
+      : ``;
+    const freezeEl = freezeCount > 0
+      ? `<span class="pillar-streak" style="color:#5aa8d4;margin-left:4px">❄️${freezeCount}</span>`
       : ``;
     return `<div class="pillar ${COLORS[i]}" draggable="true" data-index="${i}">
       <div class="pillar-icon">${h.icon}</div>
@@ -1876,9 +1918,9 @@ function renderPillars() {
       <div class="pillar-footer">
         <div class="pillar-pct-row">
           <span class="pillar-pct">${pct}%</span>
-          ${streakEl}
         </div>
         <div class="pillar-bar-track"><div class="pillar-bar-fill" style="width:${pct}%"></div></div>
+        ${(streakEl || freezeEl) ? `<div style="margin-top:4px">${streakEl}${freezeEl}</div>` : ''}
       </div></div>`;
   }).join('');
   initDrag();
@@ -2058,15 +2100,43 @@ function renderMorningInsight() {
   const dn = currentDay() > 0 ? currentDay() : 1;
   const card = document.getElementById('morningInsightCard');
   const content = document.getElementById('morningInsightContent');
+  const label = document.getElementById('insightCardLabel');
   if (!card || !content) return;
 
+  const now = new Date();
+  const isAfter9pm = now.getHours() >= 21;
+
+  // After 9pm — reflection takes over this slot
+  if (isAfter9pm) {
+    const reflectionText = reflections[dn];
+    if (reflectionText) {
+      card.classList.add('show');
+      if (label) label.textContent = '🌙 Today\'s reflection';
+      content.innerHTML = `<div class="daily-reflection-text">${reflectionText}</div>`;
+    } else {
+      card.classList.remove('show');
+    }
+    return;
+  }
+
+  // Before noon — show morning coach
+  if (now.getHours() >= 12) { card.classList.remove('show'); return; }
+
   const insight = morningInsights[dn];
-  if (!insight || !insight.insights) { card.classList.remove('show'); return; }
+  if (!insight || !insight.insights || insight.insights.length === 0) {
+    card.classList.remove('show'); return;
+  }
 
-  // Check if all referenced habits are checked — if so hide card
-  const allDone = insight.habitIndices.every(p => checked[dn+'_'+p]);
-  if (allDone) { card.classList.remove('show'); return; }
+  const habitIndices = insight.habitIndices?.length
+    ? insight.habitIndices
+    : insight.insights.map(i => i.habitIndex).filter(i => i !== undefined);
 
+  if (habitIndices.length > 0) {
+    const allDone = habitIndices.every(p => !!checked[dn+'_'+p]);
+    if (allDone) { card.classList.remove('show'); return; }
+  }
+
+  if (label) label.textContent = '✨ This morning';
   card.classList.add('show');
   content.innerHTML = insight.insights.map(item => `
     <div class="morning-insight-item">
@@ -2159,15 +2229,16 @@ async function maybeGenerateReflection(dn, doneCt) {
   const now = new Date();
   const isPastDay = dn < currentDay();
   const isAfter9pm = now.getHours() >= 21;
-  // Generate if it's a past day (no time restriction) OR today after 9pm
   if (!isPastDay && !isAfter9pm) return;
-  if (doneCt === 0 && !habits.some((h,p) => notes[dn+'_'+p])) return; // nothing to reflect on
+  if (doneCt === 0 && !habits.some((h,p) => notes[dn+'_'+p])) return;
 
-  const el = document.getElementById('dailyReflection');
-  const content = document.getElementById('reflectionContent');
-  if (!el || !content) return;
-
-  el.classList.add('show');
+  // Show loading in the unified card slot
+  const card = document.getElementById('morningInsightCard');
+  const content = document.getElementById('morningInsightContent');
+  const label = document.getElementById('insightCardLabel');
+  if (!card || !content) return;
+  card.classList.add('show');
+  if (label) label.textContent = '🌙 Today\'s reflection';
   content.innerHTML = `<div class="daily-reflection-loading"><div class="daily-reflection-spinner"></div>Reflecting on your day…</div>`;
 
   const habitSummary = habits.map((h,p) => {
@@ -2196,10 +2267,10 @@ async function maybeGenerateReflection(dn, doneCt) {
     const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
     reflections[dn] = text;
     save();
-    content.innerHTML = `<div class="daily-reflection-text">${text}</div>`;
+    renderMorningInsight(); // renders reflection in the unified card slot
   } catch(e) {
     console.warn('Reflection generation failed:', e);
-    el.classList.remove('show');
+    card.classList.remove('show');
   }
 }
 
@@ -2281,12 +2352,6 @@ function renderDailyView() {
     </div>`;
   }).join('');
   const miniDots=habits.map((_,p)=>`<div class="daily-mini-dot" style="${checked[dn+'_'+p]?'background:var(--c'+(p+1)+')':''}"></div>`).join('');
-  const reflectionText = reflections[dn];
-  const reflectionSection = `
-    <div class="daily-reflection ${reflectionText ? 'show' : ''}" id="dailyReflection">
-      <div class="daily-reflection-label">✨ Today's reflection</div>
-      <div id="reflectionContent">${reflectionText ? `<div class="daily-reflection-text">${reflectionText}</div>` : ''}</div>
-    </div>`;
   document.getElementById('calendar').innerHTML = `
     <div class="daily-date">${greeting} ${dateStr}</div>
     <div class="daily-subtitle">Day ${dn} of 30 &nbsp;·&nbsp; ${doneCt} of ${habits.length} habits done</div>
@@ -2295,9 +2360,9 @@ function renderDailyView() {
     <div class="daily-summary">
       <div><div class="daily-summary-score">${doneCt}/${habits.length}</div><div class="daily-summary-label">Today's habits</div></div>
       <div class="daily-mini-dots">${miniDots}</div>
-    </div>
-    ${reflectionSection}`;
+    </div>`;
   maybeGenerateReflection(dn, doneCt);
+  renderMorningInsight();
 }
 
 function renderWeeklyView() {
@@ -2346,10 +2411,35 @@ function renderStats() {
   const pct=total?Math.round(done/total*100):0;
   const activeStreaks = habits.filter((_,p) => habitStreak(p) > 0).length;
   const todayDone = habits.filter((_,p) => checked[dn+'_'+p]).length;
-  document.getElementById('s-day').textContent=Math.min(currentDay(),30);
-  document.getElementById('s-streak').textContent=todayDone+'/'+n;
-  document.getElementById('s-pct').textContent=pct+'%';
-  document.getElementById('s-perfect').textContent=activeStreaks;
+  document.getElementById('s-streak').textContent = todayDone+'/'+n;
+  document.getElementById('s-perfect').textContent = activeStreaks;
+
+  // Strongest + weakest habit by completion count
+  const habitScores = habits.map((h, p) => ({ h, p, done: habitCompletion(p) }));
+  const strongest = habitScores.reduce((a, b) => b.done > a.done ? b : a, habitScores[0]);
+  const weakest = habitScores.reduce((a, b) => b.done < a.done ? b : a, habitScores[0]);
+
+  const topEl = document.getElementById('s-tophab');
+  const topStreakEl = document.getElementById('s-tophab-streak');
+  const weakEl = document.getElementById('s-weakest');
+  const weakMissedEl = document.getElementById('s-weakest-missed');
+
+  if (topEl && strongest?.h) {
+    topEl.textContent = `${strongest.h.icon} ${strongest.h.name}`;
+    if (topStreakEl) {
+      const s = habitStreak(strongest.p);
+      topStreakEl.textContent = s > 0 ? `🔥 ${s} days` : '';
+    }
+  }
+  if (weakEl && weakest?.h) {
+    weakEl.textContent = `${weakest.h.icon} ${weakest.h.name}`;
+    if (weakMissedEl) {
+      const today = currentDay();
+      const missed = Array.from({length: Math.min(today, 7)}, (_, i) => checked[(today-i)+'_'+weakest.p] ? 0 : 1).reduce((a,b) => a+b, 0);
+      weakMissedEl.textContent = missed > 0 ? `${missed} of ${Math.min(today,7)} missed` : 'on track ✓';
+      weakMissedEl.className = 'summary-row-right ' + (missed > 0 ? 'wip-val' : 'streak-val');
+    }
+  }
   document.getElementById('prog-fill').style.width=pct+'%';
   document.getElementById('prog-pct-label').textContent=done+' / '+total+' checks';
 }
