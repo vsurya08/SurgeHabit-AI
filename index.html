@@ -163,6 +163,9 @@
   .quote-loading { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
   .quote-spinner { width: 13px; height: 13px; border: 1.5px solid var(--border); border-top-color: var(--muted); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes breathe { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-2px); } }
+  .day-cal-date { font-size: 9px; color: var(--muted); font-weight: 500; }
+  .day-num { font-size: 9px; color: var(--muted); }
 
   /* Stats */
   /* Summary card */
@@ -1721,6 +1724,7 @@ function launchApp() {
   document.getElementById('appTitle').innerHTML = b ? `${a}<br><em>${b}</em>` : `<em>${a}</em>`;
   document.getElementById('appDateLabel').textContent = 'Starting ' + parseLocalDate(startDate).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
   loadDailyQuote(); render();
+  migrateToDateKeys();
   maybeConsumeFreeze();
   maybeGenerateMorningInsight();
   renderNotifications();
@@ -1751,27 +1755,122 @@ function confirmReset() {
 function toDateVal(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function parseLocalDate(s) {
   if (!s) return null;
-  // Handle both YYYY-MM-DD (new) and ISO timestamp (legacy e.g. "2026-06-08T07:00:00.000Z")
   const str = typeof s === 'string' ? s : s.toISOString ? s.toISOString() : String(s);
-  const dateOnly = str.slice(0, 10); // grab YYYY-MM-DD from either format
+  const dateOnly = str.slice(0, 10);
   const [y, m, d] = dateOnly.split('-').map(Number);
-  return new Date(y, m - 1, d); // local timezone, no UTC shift
+  return new Date(y, m - 1, d);
 }
+
+// Convert day number to calendar date string (YYYY-MM-DD)
+function dayToDate(dayNum) {
+  if (!startDate) return null;
+  const d = parseLocalDate(startDate);
+  d.setDate(d.getDate() + dayNum - 1);
+  return toDateVal(d);
+}
+
+// Convert calendar date string to day number
+function dateToDay(dateStr) {
+  if (!startDate || !dateStr) return 0;
+  const start = parseLocalDate(startDate);
+  const d = parseLocalDate(dateStr);
+  return Math.floor((d - start) / 86400000) + 1;
+}
+
+// Today's date string
+function todayStr() {
+  return toDateVal(new Date());
+}
+
+// Migrate old day-number keys to calendar date keys (runs once)
+function migrateToDateKeys() {
+  if (!startDate) return;
+  let migrated = false;
+
+  // Detect old-style keys (numeric day prefix e.g. "1_0", "6_0")
+  const oldCheckedKeys = Object.keys(checked).filter(k => /^\d+_/.test(k) && !k.includes('-'));
+  if (oldCheckedKeys.length > 0) {
+    const newChecked = {};
+    Object.keys(checked).forEach(key => {
+      const parts = key.split('_');
+      const d = parseInt(parts[0]);
+      if (!isNaN(d) && !parts[0].includes('-')) {
+        const dateKey = dayToDate(d);
+        if (dateKey) newChecked[dateKey+'_'+parts.slice(1).join('_')] = checked[key];
+      } else {
+        newChecked[key] = checked[key]; // already date-keyed
+      }
+    });
+    checked = newChecked;
+    migrated = true;
+  }
+
+  const oldNotesKeys = Object.keys(notes).filter(k => /^\d+_/.test(k) && !k.includes('-'));
+  if (oldNotesKeys.length > 0) {
+    const newNotes = {};
+    Object.keys(notes).forEach(key => {
+      const parts = key.split('_');
+      const d = parseInt(parts[0]);
+      if (!isNaN(d) && !parts[0].includes('-')) {
+        const dateKey = dayToDate(d);
+        if (dateKey) newNotes[dateKey+'_'+parts.slice(1).join('_')] = notes[key];
+      } else {
+        newNotes[key] = notes[key];
+      }
+    });
+    notes = newNotes;
+    migrated = true;
+  }
+
+  const oldReflectionKeys = Object.keys(reflections).filter(k => /^\d+$/.test(k));
+  if (oldReflectionKeys.length > 0) {
+    const newReflections = {};
+    Object.keys(reflections).forEach(key => {
+      if (/^\d+$/.test(key)) {
+        const dateKey = dayToDate(parseInt(key));
+        if (dateKey) newReflections[dateKey] = reflections[key];
+      } else {
+        newReflections[key] = reflections[key];
+      }
+    });
+    reflections = newReflections;
+    migrated = true;
+  }
+
+  const oldInsightKeys = Object.keys(morningInsights).filter(k => /^\d+$/.test(k));
+  if (oldInsightKeys.length > 0) {
+    const newInsights = {};
+    Object.keys(morningInsights).forEach(key => {
+      if (/^\d+$/.test(key)) {
+        const dateKey = dayToDate(parseInt(key));
+        if (dateKey) newInsights[dateKey] = morningInsights[key];
+      } else {
+        newInsights[key] = morningInsights[key];
+      }
+    });
+    morningInsights = newInsights;
+    migrated = true;
+  }
+
+  if (migrated) { save(); console.log('Migrated to calendar date keys'); }
+}
+
 function currentDay() {
   if (!startDate) return 0;
   const start = parseLocalDate(startDate);
   const today = new Date(); today.setHours(0,0,0,0);
   return Math.max(0, Math.min(Math.floor((today-start)/86400000)+1, 30));
 }
-function toggle(day, p) {
-  const wasAllDone = habits.every((_,i) => checked[day+'_'+i]);
-  checked[day+'_'+p] = !checked[day+'_'+p];
+function toggle(dayNum, p) {
+  const dateKey = dayToDate(dayNum) || todayStr();
+  const wasAllDone = habits.every((_,i) => checked[dateKey+'_'+i]);
+  checked[dateKey+'_'+p] = !checked[dateKey+'_'+p];
+  if (!checked[dateKey+'_'+p]) delete checked[dateKey+'_'+p];
   save(); render();
   maybeAwardFreeze(p);
   renderMorningInsight();
-  // Trigger celebration if all habits just became done
-  const isAllDone = habits.every((_,i) => checked[day+'_'+i]);
-  if (!wasAllDone && isAllDone && day === currentDay()) {
+  const isAllDone = habits.every((_,i) => checked[dateKey+'_'+i]);
+  if (!wasAllDone && isAllDone && dayNum === currentDay()) {
     triggerCelebration();
   }
 }
@@ -1836,7 +1935,37 @@ function triggerCelebration() {
   setTimeout(() => canvas.classList.remove('show'), 4000);
 }
 
-// Award a freeze when a habit hits a 7-day streak
+function habitStreak(p) {
+  const today = currentDay();
+  if (today <= 0) return 0;
+  const startDay = checked[dayToDate(today)+'_'+p] ? today : today - 1;
+  let streak = 0;
+  for (let d = startDay; d >= 1; d--) {
+    const dk = dayToDate(d);
+    if (checked[dk+'_'+p] || checked[dk+'_'+p+'_frozen']) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+function streakAtRisk(p) {
+  const today = currentDay();
+  if (today <= 0) return false;
+  return !checked[dayToDate(today)+'_'+p] && habitStreak(p) > 0;
+}
+
+function habitCompletion(p) {
+  if (!startDate) return 0;
+  let d = 0;
+  for (let i = 1; i <= 30; i++) {
+    const dk = dayToDate(i);
+    if (dk && checked[dk+'_'+p]) d++;
+  }
+  return d;
+}
 function maybeAwardFreeze(p) {
   const streak = habitStreak(p);
   if (streak > 0 && streak % 7 === 0) {
@@ -1857,21 +1986,21 @@ function maybeAwardFreeze(p) {
 // On app load — check if any habit missed yesterday and auto-consume a freeze
 function maybeConsumeFreeze() {
   const today = currentDay();
-  if (today <= 1) return; // nothing to check on Day 1
+  if (today <= 1) return;
   const yesterday = today - 1;
+  const yesterdayKey = dayToDate(yesterday);
+  const dayBeforeKey = yesterday > 1 ? dayToDate(yesterday - 1) : null;
   let freezeUsed = [];
 
   habits.forEach((h, p) => {
-    const checkedYesterday = !!checked[yesterday + '_' + p];
-    const checkedDayBefore = yesterday > 1 ? !!checked[(yesterday-1) + '_' + p] : true;
-    const hasActiveStreak = checkedDayBefore; // had a streak going into yesterday
+    const checkedYesterday = !!checked[yesterdayKey+'_'+p];
+    const checkedDayBefore = dayBeforeKey ? !!checked[dayBeforeKey+'_'+p] : true;
+    const hasActiveStreak = checkedDayBefore;
     const hasFreezes = (freezes[p] || 0) > 0;
 
     if (!checkedYesterday && hasActiveStreak && hasFreezes) {
-      // Auto-consume freeze
       freezes[p] = (freezes[p] || 0) - 1;
-      // Mark yesterday as "freeze protected" so streak calculation sees it as checked
-      checked[yesterday + '_' + p + '_frozen'] = true;
+      checked[yesterdayKey+'_'+p+'_frozen'] = true;
       freezeUsed.push({ name: h.name, streak: habitStreak(p), p });
     }
   });
@@ -1879,12 +2008,10 @@ function maybeConsumeFreeze() {
   if (freezeUsed.length > 0) {
     save();
     const names = freezeUsed.map(f => `${f.name} (🔥${f.streak})`).join(', ');
-    addNotification(
-      'freeze_used',
+    addNotification('freeze_used',
       `❄️ Streak freeze${freezeUsed.length > 1 ? 's' : ''} used yesterday`,
       `${names} ${freezeUsed.length > 1 ? 'are' : 'is'} protected. Log today to keep ${freezeUsed.length > 1 ? 'them' : 'it'} going.`,
-      '❄️'
-    );
+      '❄️');
   }
 }
 
@@ -1959,7 +2086,7 @@ function initDrag() {
         for(let d=1;d<=30;d++){
           const order=Array.from({length:habits.length},(_,i)=>i);
           const mi=order.splice(from,1)[0]; order.splice(to,0,mi);
-          order.forEach((op,np)=>{ if(checked[d+'_'+op]) nc[d+'_'+np]=true; });
+          const dkR=dayToDate(d)||''; order.forEach((op,np)=>{ if(checked[dkR+'_'+op]) nc[dkR+'_'+np]=true; });
         }
         checked=nc; save(); render();
       }
@@ -2023,8 +2150,10 @@ function deleteHabit(idx) {
     let np=0;
     for(let p=0;p<habits.length+1;p++){
       if(p===idx)continue;
-      if(checked[d+'_'+p])nc[d+'_'+np]=true;
-      if(notes[d+'_'+p])nn[d+'_'+np]=notes[d+'_'+p];
+      const dk=dayToDate(d)||'';
+      const nk=dayToDate(d)||'';
+      if(checked[dk+'_'+p])nc[nk+'_'+np]=true;
+      if(notes[dk+'_'+p])nn[nk+'_'+np]=notes[dk+'_'+p];
       np++;
     }
   }
@@ -2123,7 +2252,8 @@ function renderMorningInsight() {
 
   // After 9pm — reflection takes over this slot
   if (isAfter9pm) {
-    const reflectionText = reflections[dn];
+    const dnDateKey2 = dayToDate(dn) || todayStr();
+  const reflectionText = reflections[dnDateKey2];
     if (reflectionText) {
       card.classList.add('show');
       if (label) label.textContent = '🌙 Today\'s reflection';
@@ -2137,7 +2267,7 @@ function renderMorningInsight() {
   // Before noon — show morning coach
   if (now.getHours() >= 12) { card.classList.remove('show'); return; }
 
-  const insight = morningInsights[dn];
+  const insight = morningInsights[dnDateKey2];
   if (!insight || !insight.insights || insight.insights.length === 0) {
     card.classList.remove('show'); return;
   }
@@ -2147,7 +2277,7 @@ function renderMorningInsight() {
     : insight.insights.map(i => i.habitIndex).filter(i => i !== undefined);
 
   if (habitIndices.length > 0) {
-    const allDone = habitIndices.every(p => !!checked[dn+'_'+p]);
+    const allDone = habitIndices.every(p => !!checked[dnDateKey2+'_'+p]);
     if (allDone) { card.classList.remove('show'); return; }
   }
 
@@ -2176,7 +2306,8 @@ async function maybeGenerateMorningInsight() {
   }
 
   // Already generated today
-  if (morningInsights[dn]) { renderMorningInsight(); return; }
+  const miDateKey = dayToDate(dn) || todayStr();
+  if (morningInsights[miDateKey]) { renderMorningInsight(); return; }
 
   // Show loading state
   const card = document.getElementById('morningInsightCard');
@@ -2188,11 +2319,11 @@ async function maybeGenerateMorningInsight() {
   // Build context for AI
   const habitContext = habits.map((h, p) => {
     const recentDays = Math.min(today - 1, 7);
-    const recentChecks = Array.from({length: recentDays}, (_, i) => checked[(today-1-i)+'_'+p] ? 1 : 0);
+    const recentChecks = Array.from({length: recentDays}, (_, i) => { const dkMI=dayToDate(today-1-i)||''; return checked[dkMI+'_'+p] ? 1 : 0; });
     const missedRecently = recentChecks.filter(x => !x).length;
     const streak = habitStreak(p);
-    const recentNotes = Array.from({length: Math.min(3, today-1)}, (_, i) => notes[(today-1-i)+'_'+p]).filter(Boolean);
-    const recentReflections = Array.from({length: Math.min(3, today-1)}, (_, i) => reflections[today-1-i]).filter(Boolean);
+    const recentNotes = Array.from({length: Math.min(3, today-1)}, (_, i) => { const dkMI2=dayToDate(today-1-i)||''; return notes[dkMI2+'_'+p]; }).filter(Boolean);
+    const recentReflections = Array.from({length: Math.min(3, today-1)}, (_, i) => { const dkMI3=dayToDate(today-1-i)||''; return reflections[dkMI3]; }).filter(Boolean);
     return { index: p, name: h.name, icon: h.icon, missedRecently, streak, recentNotes, recentReflections };
   });
 
@@ -2226,7 +2357,7 @@ Respond ONLY with valid JSON, no markdown:
     const cleaned = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/, '').trim();
     const parsed = JSON.parse(cleaned);
 
-    morningInsights[dn] = {
+    morningInsights[miDateKey] = {
       insights: parsed.insights,
       habitIndices: parsed.habitIndices || parsed.insights.map(i => i.habitIndex)
     };
@@ -2240,14 +2371,14 @@ Respond ONLY with valid JSON, no markdown:
 }
 
 async function maybeGenerateReflection(dn, doneCt) {
-  if (reflections[dn]) return; // already generated
+  const dnDateKey = dayToDate(dn) || todayStr();
+  if (reflections[dnDateKey]) return; // already generated
   const now = new Date();
   const isPastDay = dn < currentDay();
   const isAfter9pm = now.getHours() >= 21;
   if (!isPastDay && !isAfter9pm) return;
-  if (doneCt === 0 && !habits.some((h,p) => notes[dn+'_'+p])) return;
+  if (doneCt === 0 && !habits.some((h,p) => notes[dnDateKey+'_'+p])) return;
 
-  // Show loading in the unified card slot
   const card = document.getElementById('morningInsightCard');
   const content = document.getElementById('morningInsightContent');
   const label = document.getElementById('insightCardLabel');
@@ -2257,8 +2388,8 @@ async function maybeGenerateReflection(dn, doneCt) {
   content.innerHTML = `<div class="daily-reflection-loading"><div class="daily-reflection-spinner"></div>Reflecting on your day…</div>`;
 
   const habitSummary = habits.map((h,p) => {
-    const done = checked[dn+'_'+p];
-    const note = notes[dn+'_'+p];
+    const done = checked[dnDateKey+'_'+p];
+    const note = notes[dnDateKey+'_'+p];
     return `${h.name}: ${done ? 'done' : 'missed'}${note ? ` (note: "${note}")` : ''}`;
   }).join('; ');
 
@@ -2280,7 +2411,7 @@ async function maybeGenerateReflection(dn, doneCt) {
     });
     const data = await res.json();
     const text = data.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    reflections[dn] = text;
+    reflections[dnDateKey] = text;
     save();
     renderMorningInsight(); // renders reflection in the unified card slot
   } catch(e) {
@@ -2292,10 +2423,9 @@ async function maybeGenerateReflection(dn, doneCt) {
 function renderDailyView() {
   const today=currentDay();
   const dn=today>0?today:1;
-  // Safety check — if today is 0 (challenge hasn't started) show Day 1 UI but with empty notes
-  const notesDay = today>0 ? dn : null;
+  const todayDateKey = dayToDate(dn) || todayStr();
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-  const doneCt=habits.filter((_,p)=>checked[dn+'_'+p]).length;
+  const doneCt=habits.filter((_,p)=>checked[todayDateKey+'_'+p]).length;
   const greeting = userName ? `${userName} —` : '';
 
   const habitsWithTime = habits.filter(h => h.time);
@@ -2312,8 +2442,8 @@ function renderDailyView() {
     </div>` : '';
 
   const habitRows=habits.map((h,p)=>{
-    const on=checked[dn+'_'+p];
-    const note = notesDay ? (notes[notesDay+'_'+p] || '') : '';
+    const on=checked[todayDateKey+'_'+p];
+    const note = today>0 ? (notes[todayDateKey+'_'+p] || '') : '';
     const hasNote = !!note;
     const timeSection = h.time ? `
       <div class="daily-habit-time" onclick="event.stopPropagation()">
@@ -2346,7 +2476,7 @@ function renderDailyView() {
             const streak = habitStreak(p);
             const now = new Date();
             const isAfterNoon = now.getHours() >= 12;
-            const doneToday = !!checked[dn+'_'+p];
+            const doneToday = !!checked[todayDateKey+'_'+p];
             if (doneToday && streak > 0) return `<div class="daily-habit-streak">🔥 ${streak} day streak</div>`;
             if (!doneToday && streak > 0 && isAfterNoon) return `<div class="daily-habit-streak at-risk">Streak at risk — check in to keep your 🔥 ${streak} day streak</div>`;
             if (!doneToday && streak > 0 && !isAfterNoon) return `<div class="daily-habit-streak">🔥 ${streak} — check in today to keep it going</div>`;
@@ -2366,7 +2496,7 @@ function renderDailyView() {
       </div>
     </div>`;
   }).join('');
-  const miniDots=habits.map((_,p)=>`<div class="daily-mini-dot" style="${checked[dn+'_'+p]?'background:var(--c'+(p+1)+')':''}"></div>`).join('');
+  const miniDots=habits.map((_,p)=>`<div class="daily-mini-dot" style="${checked[todayDateKey+'_'+p]?'background:var(--c'+(p+1)+')':''}"></div>`).join('');
   document.getElementById('calendar').innerHTML = `
     <div class="daily-date">${greeting} ${dateStr}</div>
     <div class="daily-subtitle">Day ${dn} of 30 &nbsp;·&nbsp; ${doneCt} of ${habits.length} habits done</div>
@@ -2382,19 +2512,25 @@ function renderDailyView() {
 
 function renderWeeklyView() {
   const today=currentDay(); let html='', dayNum=1;
-  const lastEditable = today; // today and yesterday (today-1) are editable
   WEEKS.forEach(w=>{
     const is2=w.days===2;
     html+=`<div class="week"><div class="week-head"><span class="week-label">${w.label}</span><span class="week-theme">${w.theme}</span><div class="week-line"></div></div><div class="day-grid${is2?' day-grid-2':''}">`;
     for(let d=0;d<w.days;d++){
-      const dn=dayNum, allDone=habits.every((_,p)=>checked[dn+'_'+p]), isToday=dn===today;
+      const dn=dayNum;
+      const dateKey=dayToDate(dn)||'';
+      const calDate=dateKey?parseLocalDate(dateKey).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+      const allDone=habits.every((_,p)=>checked[dateKey+'_'+p]);
+      const isToday=dn===today, isFuture=dn>today;
       html+=`<div class="day-card${allDone?' is-perfect':''}${isToday?' is-today':''}">
-        <div class="day-num-row"><span class="day-num">${dn}</span><div class="today-dot"></div></div>
+        <div class="day-num-row">
+          <span class="day-cal-date">${calDate}</span>
+          <span class="day-num">D${dn}</span>
+          <div class="today-dot"></div>
+        </div>
         <div class="checks">`;
       habits.forEach((h,p)=>{
-        const on=checked[dn+'_'+p];
-        if (dn <= today) {
-          // Today and all past days — fully editable
+        const on=checked[dateKey+'_'+p];
+        if(!isFuture){
           html+=`<div class="chk-row p${p}${on?' done':''}" onclick="toggle(${dn},${p})"><div class="chk-box${on?' on':''}">${CHECK_SVG}</div><span class="chk-lbl">${h.name}</span></div>`;
         } else {
           // Future days — read only, dimmed
@@ -2409,27 +2545,93 @@ function renderWeeklyView() {
 }
 
 function renderMonthlyView() {
-  const today=currentDay(); let grid='';
-  for(let dn=1;dn<=30;dn++){
-    const allDone=habits.every((_,p)=>checked[dn+'_'+p]), isToday=dn===today;
-    const pips=habits.map((_,p)=>`<div class="month-pip${checked[dn+'_'+p]?' on-'+p:''}"></div>`).join('');
-    grid+=`<div class="month-day${allDone?' is-perfect':''}${isToday?' is-today':''}"><div class="month-day-num">${dn}</div><div class="month-pip-row">${pips}</div></div>`;
+  const today = currentDay();
+  const totalDays = 30;
+
+  function personSVG(color) {
+    return `<svg width="12" height="18" viewBox="0 0 14 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="7" cy="3" r="2.5" fill="${color}"/>
+      <line x1="7" y1="5.5" x2="7" y2="14" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="7" y1="8" x2="3" y2="6" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="7" y1="8" x2="11" y2="10" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="7" y1="14" x2="4" y2="19" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="7" y1="14" x2="10" y2="18" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`;
   }
-  const legend=habits.map((h,i)=>`<div class="month-legend-item"><div class="month-legend-pip" style="background:${COLOR_VARS[i]}"></div>${h.name}</div>`).join('');
-  document.getElementById('calendar').innerHTML=`<div class="monthly-grid">${grid}</div><div class="month-legend">${legend}</div>`;
+
+  const legend = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;font-size:11px;color:var(--muted)">
+    <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4a9d6f"></span>Done</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e8e4da"></span>Missed</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f0ede8"></span>Ahead</span>
+    <span>🏁 Finish</span>
+  </div>`;
+
+  const cards = habits.map((h, p) => {
+    const color = COLOR_VALS[p] || '#4a9d6f';
+    const completion = habitCompletion(p);
+    const pct = Math.round(completion / totalDays * 100);
+    const streak = habitStreak(p);
+
+    const bars = Array.from({length: totalDays}, (_, i) => {
+      const dayNum = i + 1;
+      const dk = dayToDate(dayNum);
+      const isToday = dayNum === today;
+      const isFuture = dayNum > today;
+      const isLast = dayNum === totalDays;
+      const done = dk && checked[dk+'_'+p];
+
+      let barStyle = '';
+      let barClass = '';
+      let height = '';
+
+      if (isFuture) { barStyle = 'background:#f0ede8'; height = '8%'; }
+      else if (done) { barStyle = `background:${color}`; height = '100%'; }
+      else { barStyle = 'background:#e8e4da'; height = '28%'; }
+
+      const flag = isLast ? `<span style="position:absolute;top:-18px;right:-2px;font-size:11px">🏁</span>` : '';
+      return `<div style="flex:1;border-radius:2px 2px 0 0;min-width:0;${barStyle};height:${height};position:relative">${flag}</div>`;
+    }).join('');
+
+    // Today bar position for person figure
+    const barWidthPct = 100 / totalDays;
+    const todayLeftPct = today > 0 ? ((today - 1) * barWidthPct + barWidthPct / 2) : 0;
+
+    // Date labels — start, mid (day 15), end
+    const startLbl = dayToDate(1) ? parseLocalDate(dayToDate(1)).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+    const midLbl = dayToDate(15) ? parseLocalDate(dayToDate(15)).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+    const endLbl = dayToDate(30) ? parseLocalDate(dayToDate(30)).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+
+    return `<div style="background:white;border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:500;color:${color};display:flex;align-items:center;gap:6px">${h.icon} ${h.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${pct}% · ${streak > 0 ? '🔥'+streak : '—'}</div>
+      </div>
+      <div style="position:relative;padding-top:24px">
+        ${today > 0 ? `<div style="position:absolute;top:0;left:calc(${todayLeftPct}% - 6px);animation:breathe 1.2s ease-in-out infinite">${personSVG(color)}</div>` : ''}
+        <div style="display:flex;align-items:flex-end;gap:2px;height:44px">${bars}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:5px">
+        <span style="font-size:9px;color:var(--muted)">${startLbl}</span>
+        <span style="font-size:9px;color:var(--muted)">${midLbl}</span>
+        <span style="font-size:9px;color:var(--muted)">${endLbl}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('calendar').innerHTML = legend + cards;
 }
 
 function renderStats() {
-  const n=habits.length; let total=0,done=0,streak=0,going=true;
+  const n=habits.length; let total=0,done=0;
   const dn = currentDay() > 0 ? currentDay() : 1;
-  for(let d=1;d<=30;d++){let dd=0; for(let p=0;p<n;p++){total++; if(checked[d+'_'+p]){done++;dd++;}} if(going&&dd>0)streak++; else going=false;}
+  const todayDateKey = dayToDate(dn) || todayStr();
+  for(let d=1;d<=30;d++){const dk=dayToDate(d); if(!dk) continue; for(let p=0;p<n;p++){total++; if(checked[dk+'_'+p])done++;}}
   const pct=total?Math.round(done/total*100):0;
   const activeStreaks = habits.filter((_,p) => habitStreak(p) > 0).length;
-  const todayDone = habits.filter((_,p) => checked[dn+'_'+p]).length;
+  const todayDone = habits.filter((_,p) => checked[todayDateKey+'_'+p]).length;
   document.getElementById('s-streak').textContent = todayDone+'/'+n;
   document.getElementById('s-perfect').textContent = activeStreaks;
 
-  // Strongest + weakest habit by completion count
   const habitScores = habits.map((h, p) => ({ h, p, done: habitCompletion(p) }));
   const strongest = habitScores.reduce((a, b) => b.done > a.done ? b : a, habitScores[0]);
   const weakest = habitScores.reduce((a, b) => b.done < a.done ? b : a, habitScores[0]);
@@ -2450,7 +2652,10 @@ function renderStats() {
     weakEl.textContent = `${weakest.h.icon} ${weakest.h.name}`;
     if (weakMissedEl) {
       const today = currentDay();
-      const missed = Array.from({length: Math.min(today, 7)}, (_, i) => checked[(today-i)+'_'+weakest.p] ? 0 : 1).reduce((a,b) => a+b, 0);
+      const missed = Array.from({length: Math.min(today, 7)}, (_, i) => {
+        const dk = dayToDate(today-i);
+        return dk && !checked[dk+'_'+weakest.p] ? 1 : 0;
+      }).reduce((a,b) => a+b, 0);
       weakMissedEl.textContent = missed > 0 ? `${missed} of ${Math.min(today,7)} missed` : 'on track ✓';
       weakMissedEl.className = 'summary-row-right ' + (missed > 0 ? 'wip-val' : 'streak-val');
     }
@@ -2866,15 +3071,15 @@ function toggleNote(day, p) {
   if (!isOpen) field.focus();
 }
 
-function saveNote(day, p) {
-  const field = document.getElementById(`nt-field-${day}-${p}`);
+function saveNote(dayNum, p) {
+  const field = document.getElementById(`nt-field-${dayNum}-${p}`);
   if (!field) return;
   const val = field.value.trim();
-  const key = day + '_' + p;
+  const dateKey = dayToDate(dayNum) || todayStr();
+  const key = dateKey + '_' + p;
   if (val) { notes[key] = val; } else { delete notes[key]; }
-  // Update toggle label to show note indicator
-  const toggle = document.getElementById(`nt-toggle-${day}-${p}`);
-  const row = document.getElementById(`nt-row-${day}-${p}`);
+  const toggle = document.getElementById(`nt-toggle-${dayNum}-${p}`);
+  const row = document.getElementById(`nt-row-${dayNum}-${p}`);
   if (toggle) toggle.textContent = val ? '📝 Edit note' : '+ Add note';
   if (row) row.classList.toggle('has-note', !!val);
   save();
@@ -2895,7 +3100,7 @@ function exportProgress() {
 
   // Overall stats
   let total=0, done=0, perfect=0, streak=0, going=true;
-  for(let d=1;d<=30;d++){let dd=0; for(let p=0;p<n;p++){total++; if(checked[d+'_'+p]){done++;dd++;}} if(dd===n)perfect++; if(going&&dd>0)streak++; else going=false;}
+  for(let d=1;d<=30;d++){const dk=dayToDate(d)||''; let dd=0; for(let p=0;p<n;p++){total++; if(checked[dk+'_'+p]){done++;dd++;}} if(dd===n)perfect++; if(going&&dd>0)streak++; else going=false;}
   out.push('## Overall Stats');
   out.push(`- Completion: ${Math.round(done/total*100)}% (${done}/${total} checks)`);
   out.push(`- Overall streak: ${streak} days`);
@@ -2917,12 +3122,13 @@ function exportProgress() {
   out.push('## Daily Log');
   for (let d = 1; d <= Math.min(today, 30); d++) {
     const calDate = startDate ? (() => { const dt = parseLocalDate(startDate); dt.setDate(dt.getDate()+d-1); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}); })() : '';
-    const allDone = habits.every((_,p) => checked[d+'_'+p]);
+    const dkE=dayToDate(d)||''; const allDone = habits.every((_,p) => checked[dkE+'_'+p]);
     out.push(`### Day ${d}${calDate ? ' · ' + calDate : ''}${allDone ? ' ✅' : ''}`);
     let hasContent = false;
     habits.forEach((h, p) => {
-      const chk = checked[d+'_'+p] ? '✓' : '✗';
-      const note = notes[d+'_'+p];
+      const dk2=dayToDate(d)||'';
+      const chk = checked[dk2+'_'+p] ? '✓' : '✗';
+      const note = notes[dk2+'_'+p];
       out.push(`- [${chk}] ${h.icon} ${h.name}${note ? ': ' + note : ''}`);
       if (note) hasContent = true;
     });
