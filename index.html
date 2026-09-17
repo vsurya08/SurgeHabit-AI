@@ -2217,6 +2217,7 @@ function saveHabitTime(p) {
 // ── Morning Insight ────────────────────────────────────────
 function renderMorningInsight() {
   const dn = currentDay() > 0 ? currentDay() : 1;
+  const dnDateKey2 = dayToDate(dn) || todayStr();
   const card = document.getElementById('morningInsightCard');
   const content = document.getElementById('morningInsightContent');
   const label = document.getElementById('insightCardLabel');
@@ -2227,7 +2228,6 @@ function renderMorningInsight() {
 
   // After 9pm — reflection takes over this slot
   if (isAfter9pm) {
-    const dnDateKey2 = dayToDate(dn) || todayStr();
   const reflectionText = reflections[dnDateKey2];
     if (reflectionText) {
       card.classList.add('show');
