@@ -2016,32 +2016,6 @@ function maybeConsumeFreeze() {
   }
 }
 
-function habitCompletion(p) { let d=0; for(let i=1;i<=30;i++) if(checked[i+'_'+p]) d++; return d; }
-
-// Calculate current streak for a habit (consecutive days from today backwards)
-function habitStreak(p) {
-  const today = currentDay();
-  if (today <= 0) return 0;
-  const startDay = checked[today + '_' + p] ? today : today - 1;
-  let streak = 0;
-  for (let d = startDay; d >= 1; d--) {
-    // Count both checked days and freeze-protected days
-    if (checked[d + '_' + p] || checked[d + '_' + p + '_frozen']) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
-// Is today's streak at risk (habit not checked today, streak > 0)?
-function streakAtRisk(p) {
-  const today = currentDay();
-  if (today <= 0) return false;
-  return !checked[today + '_' + p] && habitStreak(p) > 0;
-}
-
 function renderPillars() {
   document.getElementById('pillars').style.gridTemplateColumns = `repeat(${habits.length}, minmax(0, 1fr))`;
   const container = document.getElementById('pillars');
