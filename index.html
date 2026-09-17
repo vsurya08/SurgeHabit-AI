@@ -36,6 +36,10 @@
     gtag('event', actionType, params || {});
     gtag('event', 'engaged_action', { action_type: actionType });
   }
+  function trackScreen(screenName) {
+    if (typeof gtag !== 'function') return;
+    gtag('event', 'screen_view', { screen_name: screenName });
+  }
 </script>
 <!-- Firebase -->
 <script type="module">
@@ -1714,6 +1718,7 @@ async function startChallenge() {
 function launchApp() {
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'block';
+  trackScreen('daily_view');
   document.getElementById('pillars').style.gridTemplateColumns = `repeat(${habits.length}, minmax(0, 1fr))`;
   const parts = challengeTitle.split(' ');
   const mid = Math.ceil(parts.length / 2);
@@ -1732,6 +1737,7 @@ function confirmReset() {
   if (!confirm('Go back to setup? Your progress will be saved.')) return;
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('setupScreen').style.display = 'block';
+  trackScreen('setup_screen');
   initSetupForm();
   habits.forEach((h,i) => {
     const n = document.getElementById('shn'+i);
@@ -2138,15 +2144,11 @@ function deleteHabit(idx) {
 
 function resetProgress() { if(!confirm('Reset all checked days?')) return; checked={}; freezes={}; freezeMilestones={}; notifications=[]; save(); render(); renderNotifications(); }
 
-function toggleSettings() {
-  const btn=document.getElementById('settingsToggle'), panel=document.getElementById('settingsPanel');
-  btn.classList.toggle('open'); panel.classList.toggle('open'); renderSettingsRows();
-}
-
 function setView(v) {
   currentView=v;
   document.querySelectorAll('.view-btn').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase()===v));
   renderCalendar();
+  trackScreen(v + '_view');
 }
 
 function renderCalendar() {
@@ -2721,6 +2723,7 @@ function init() {
   } else {
     initSetupForm();
     document.getElementById('setupScreen').style.display = 'block';
+    trackScreen('setup_screen');
   }
 }
 
@@ -2936,7 +2939,7 @@ function toggleSettings() {
   const isOpen = sheet.classList.contains('open');
   sheet.classList.toggle('open', !isOpen);
   overlay.classList.toggle('open', !isOpen);
-  if (!isOpen) { renderSettingsRows(); renderFreezeInventory(); }
+  if (!isOpen) { renderSettingsRows(); renderFreezeInventory(); trackScreen('settings_sheet'); }
 }
 
 function closeSettings() {
@@ -3017,6 +3020,7 @@ async function bootApp() {
           } else {
             initSetupForm();
             document.getElementById('setupScreen').style.display = 'block';
+            trackScreen('setup_screen');
           }
         }
       } catch(e) {
@@ -3030,6 +3034,7 @@ async function bootApp() {
       document.getElementById('authGate').style.display = 'flex';
       document.getElementById('setupScreen').style.display = 'none';
       document.getElementById('mainApp').style.display = 'none';
+      trackScreen('auth_gate');
     }
   });
 }
