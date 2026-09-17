@@ -1689,10 +1689,25 @@ async function startChallenge() {
     newHabits.push({ name, short, icon, time });
   }
   if (newHabits.length < 2) { alert('Please add at least 2 habits to get started.'); return; }
+
+  const isNewChallenge = !startDate;
+  const isDateChanging = startDate && dateVal !== startDate;
+
+  if (isDateChanging) {
+    if (!confirm('Changing your start date will shift your day numbers — existing progress metrics will change and streak freezes may be lost. Are you sure you want to continue?')) return;
+  }
+
   userName = nameVal;
   challengeTitle = titleVal || '30-Day Challenge';
-  habits = newHabits; checked = {}; freezes = {}; notifications = []; morningInsights = {};
-  startDate = dateVal; // store as YYYY-MM-DD string, never UTC ISO
+  habits = newHabits;
+  startDate = dateVal;
+
+  if (isNewChallenge) {
+    // Fresh start — clear all progress data
+    checked = {}; freezes = {}; notifications = []; morningInsights = {}; reflections = {};
+  }
+  // Editing existing challenge — preserve checked, notes, reflections, freezes, morningInsights
+
   save(); launchApp();
 }
 
