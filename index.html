@@ -189,12 +189,6 @@
   .stat-lbl { font-size: 11px; color: var(--muted); font-weight: 400; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; display: block; }
 
   /* Progress */
-  .prog-wrap { margin-bottom: 32px; }
-  .prog-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-  .prog-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 400; }
-  .prog-pct { font-size: 13px; font-weight: 500; color: var(--ink); }
-  .prog-track { height: 3px; background: var(--paper-dark); border-radius: 3px; overflow: hidden; }
-  .prog-fill { height: 100%; background: var(--ink); border-radius: 3px; transition: width 0.4s cubic-bezier(0.4,0,0.2,1); }
 
   /* Pillars */
   .pillars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
@@ -1118,14 +1112,6 @@
           <span class="summary-row-right wip-val" id="s-weakest-missed"></span>
         </div>
       </div>
-    </div>
-
-    <div class="prog-wrap">
-      <div class="prog-top">
-        <span class="prog-label">Overall progress</span>
-        <span class="prog-pct" id="prog-pct-label">0 / 0 checks</span>
-      </div>
-      <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
     </div>
 
     <div class="pillars" id="pillars"></div>
@@ -2599,11 +2585,9 @@ function renderMonthlyView() {
 }
 
 function renderStats() {
-  const n=habits.length; let total=0,done=0;
+  const n=habits.length;
   const dn = currentDay() > 0 ? currentDay() : 1;
   const todayDateKey = dayToDate(dn) || todayStr();
-  for(let d=1;d<=30;d++){const dk=dayToDate(d); if(!dk) continue; for(let p=0;p<n;p++){total++; if(checked[dk+'_'+p])done++;}}
-  const pct=total?Math.round(done/total*100):0;
   const activeStreaks = habits.filter((_,p) => habitStreak(p) > 0).length;
   const todayDone = habits.filter((_,p) => checked[todayDateKey+'_'+p]).length;
   document.getElementById('s-streak').textContent = todayDone+'/'+n;
@@ -2637,8 +2621,6 @@ function renderStats() {
       weakMissedEl.className = 'summary-row-right ' + (missed > 0 ? 'wip-val' : 'streak-val');
     }
   }
-  document.getElementById('prog-fill').style.width=pct+'%';
-  document.getElementById('prog-pct-label').textContent=done+' / '+total+' checks';
 }
 
 function render() { renderPillars(); renderSettingsRows(); renderCalendar(); renderStats(); }
