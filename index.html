@@ -27,6 +27,15 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
   gtag('config', 'G-K1R1KM2W9N');
+  // trackEngagement: fires the specific action event PLUS a single shared
+  // 'engaged_action' event (mark this as a GA4 Key Event) so "did this user
+  // do anything meaningful" is one clean metric, without needing a custom
+  // Audience just to answer that question.
+  function trackEngagement(actionType, params) {
+    if (typeof gtag !== 'function') return;
+    gtag('event', actionType, params || {});
+    gtag('event', 'engaged_action', { action_type: actionType });
+  }
 </script>
 <!-- Firebase -->
 <script type="module">
@@ -1695,6 +1704,7 @@ async function startChallenge() {
   if (isNewChallenge) {
     // Fresh start — clear all progress data
     checked = {}; freezes = {}; freezeMilestones = {}; notifications = []; morningInsights = {}; reflections = {};
+    trackEngagement('challenge_created', { habit_count: habits.length });
   }
   // Editing existing challenge — preserve checked, notes, reflections, freezes, morningInsights
 
@@ -1852,8 +1862,10 @@ function toggle(dayNum, p) {
   const dateKey = dayToDate(dayNum) || todayStr();
   const wasAllDone = habits.every((_,i) => checked[dateKey+'_'+i]);
   checked[dateKey+'_'+p] = !checked[dateKey+'_'+p];
+  const nowChecked = !!checked[dateKey+'_'+p];
   if (!checked[dateKey+'_'+p]) delete checked[dateKey+'_'+p];
   save(); render();
+  if (nowChecked) trackEngagement('habit_checked', { habit_name: habits[p]?.name || '' });
   maybeAwardFreeze(p);
   renderMorningInsight();
   const isAllDone = habits.every((_,i) => checked[dateKey+'_'+i]);
@@ -2968,6 +2980,11 @@ async function bootApp() {
     document.getElementById('authLoading').style.display = 'none';
     if (user) {
       currentUserId = user.uid;
+      if (typeof gtag === 'function') gtag('set', 'user_id', user.uid);
+      if (!window._loginTrackedThisSession) {
+        window._loginTrackedThisSession = true;
+        trackEngagement('login', { method: 'google' });
+      }
       document.getElementById('authGate').style.display = 'none';
       updateUserChip(user);
 
@@ -3033,6 +3050,7 @@ function toggleNote(day, p) {
   if (!isOpen) field.focus();
 }
 
+let noteAnalyticsTimers = {};
 function saveNote(dayNum, p) {
   const field = document.getElementById(`nt-field-${dayNum}-${p}`);
   if (!field) return;
@@ -3045,6 +3063,9 @@ function saveNote(dayNum, p) {
   if (toggle) toggle.textContent = val ? '📝 Edit note' : '+ Add note';
   if (row) row.classList.toggle('has-note', !!val);
   save();
+  // Debounced — fire once per note after typing pauses, not per keystroke
+  clearTimeout(noteAnalyticsTimers[key]);
+  if (val) noteAnalyticsTimers[key] = setTimeout(() => trackEngagement('note_saved', {}), 1500);
 }
 
 function exportProgress() {
