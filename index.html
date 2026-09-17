@@ -1199,6 +1199,7 @@ const SETUP_DEFAULTS = [
 const HABIT_ICONS_POOL = ["⭐","🏃","🧠","🎯","📖","🎵","🧘","🍎","🌙","❤️","💡","🔥"];
 const COLORS = ['p1','p2','p3','p4','p5','p6'];
 const COLOR_VARS = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)'];
+const COLOR_VALS = ['#2563b0','#177a57','#6b45c8','#c47d0e','#b5344a','#0e7490'];
 
 let habits = [], checked = {}, notes = {}, reflections = {}, notifications = [], freezes = {}, morningInsights = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
 
@@ -2545,78 +2546,80 @@ function renderWeeklyView() {
 }
 
 function renderMonthlyView() {
-  const today = currentDay();
-  const totalDays = 30;
-
-  function personSVG(color) {
-    return `<svg width="12" height="18" viewBox="0 0 14 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="7" cy="3" r="2.5" fill="${color}"/>
-      <line x1="7" y1="5.5" x2="7" y2="14" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/>
-      <line x1="7" y1="8" x2="3" y2="6" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="7" y1="8" x2="11" y2="10" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="7" y1="14" x2="4" y2="19" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="7" y1="14" x2="10" y2="18" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/>
-    </svg>`;
+  if (!startDate || !habits.length) {
+    document.getElementById('calendar').innerHTML = '<p style="padding:20px;color:var(--muted);font-size:13px">Start your challenge to see monthly progress.</p>';
+    return;
   }
 
-  const legend = `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;font-size:11px;color:var(--muted)">
-    <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4a9d6f"></span>Done</span>
-    <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e8e4da"></span>Missed</span>
-    <span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f0ede8"></span>Ahead</span>
-    <span>🏁 Finish</span>
-  </div>`;
+  const today = currentDay();
+  const totalDays = 30;
+  const barWidthPct = 100 / totalDays;
 
-  const cards = habits.map((h, p) => {
+  const legend = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;font-size:11px;color:var(--muted)">'
+    + '<span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4a9d6f"></span>Done</span>'
+    + '<span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#e8e4da"></span>Missed</span>'
+    + '<span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#f0ede8"></span>Ahead</span>'
+    + '<span>🏁 Finish</span></div>';
+
+  let cards = '';
+
+  habits.forEach(function(h, p) {
     const color = COLOR_VALS[p] || '#4a9d6f';
     const completion = habitCompletion(p);
     const pct = Math.round(completion / totalDays * 100);
     const streak = habitStreak(p);
-
-    const bars = Array.from({length: totalDays}, (_, i) => {
-      const dayNum = i + 1;
-      const dk = dayToDate(dayNum);
-      const isToday = dayNum === today;
-      const isFuture = dayNum > today;
-      const isLast = dayNum === totalDays;
-      const done = dk && checked[dk+'_'+p];
-
-      let barStyle = '';
-      let barClass = '';
-      let height = '';
-
-      if (isFuture) { barStyle = 'background:#f0ede8'; height = '8%'; }
-      else if (done) { barStyle = `background:${color}`; height = '100%'; }
-      else { barStyle = 'background:#e8e4da'; height = '28%'; }
-
-      const flag = isLast ? `<span style="position:absolute;top:-18px;right:-2px;font-size:11px">🏁</span>` : '';
-      return `<div style="flex:1;border-radius:2px 2px 0 0;min-width:0;${barStyle};height:${height};position:relative">${flag}</div>`;
-    }).join('');
-
-    // Today bar position for person figure
-    const barWidthPct = 100 / totalDays;
     const todayLeftPct = today > 0 ? ((today - 1) * barWidthPct + barWidthPct / 2) : 0;
 
-    // Date labels — start, mid (day 15), end
-    const startLbl = dayToDate(1) ? parseLocalDate(dayToDate(1)).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-    const midLbl = dayToDate(15) ? parseLocalDate(dayToDate(15)).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
-    const endLbl = dayToDate(30) ? parseLocalDate(dayToDate(30)).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '';
+    // Build bars
+    let bars = '';
+    for (let i = 0; i < totalDays; i++) {
+      const dayNum = i + 1;
+      const dk = dayToDate(dayNum) || '';
+      const isFuture = dayNum > today;
+      const isLast = dayNum === totalDays;
+      const done = dk && checked[dk + '_' + p];
+      let bg, ht;
+      if (isFuture) { bg = '#f0ede8'; ht = '8%'; }
+      else if (done) { bg = color; ht = '100%'; }
+      else { bg = '#e8e4da'; ht = '28%'; }
+      const flag = isLast ? '<span style="position:absolute;top:-18px;right:-2px;font-size:11px">🏁</span>' : '';
+      bars += '<div style="flex:1;border-radius:2px 2px 0 0;min-width:0;background:' + bg + ';height:' + ht + ';position:relative">' + flag + '</div>';
+    }
 
-    return `<div style="background:white;border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:500;color:${color};display:flex;align-items:center;gap:6px">${h.icon} ${h.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${pct}% · ${streak > 0 ? '🔥'+streak : '—'}</div>
-      </div>
-      <div style="position:relative;padding-top:24px">
-        ${today > 0 ? `<div style="position:absolute;top:0;left:calc(${todayLeftPct}% - 6px);animation:breathe 1.2s ease-in-out infinite">${personSVG(color)}</div>` : ''}
-        <div style="display:flex;align-items:flex-end;gap:2px;height:44px">${bars}</div>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-top:5px">
-        <span style="font-size:9px;color:var(--muted)">${startLbl}</span>
-        <span style="font-size:9px;color:var(--muted)">${midLbl}</span>
-        <span style="font-size:9px;color:var(--muted)">${endLbl}</span>
-      </div>
-    </div>`;
-  }).join('');
+    // Person SVG
+    const person = today > 0
+      ? '<div style="position:absolute;top:0;left:calc(' + todayLeftPct + '% - 6px);animation:breathe 1.2s ease-in-out infinite">'
+        + '<svg width="12" height="18" viewBox="0 0 14 22" fill="none">'
+        + '<circle cx="7" cy="3" r="2.5" fill="' + color + '"/>'
+        + '<line x1="7" y1="5.5" x2="7" y2="14" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round"/>'
+        + '<line x1="7" y1="8" x2="3" y2="6" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round"/>'
+        + '<line x1="7" y1="8" x2="11" y2="10" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round"/>'
+        + '<line x1="7" y1="14" x2="4" y2="19" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round"/>'
+        + '<line x1="7" y1="14" x2="10" y2="18" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round"/>'
+        + '</svg></div>'
+      : '';
+
+    // Date labels
+    const d1 = dayToDate(1), d15 = dayToDate(15), d30 = dayToDate(30);
+    const startLbl = d1 ? parseLocalDate(d1).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
+    const midLbl = d15 ? parseLocalDate(d15).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
+    const endLbl = d30 ? parseLocalDate(d30).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : '';
+
+    cards += '<div style="background:white;border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+      + '<div style="font-size:13px;font-weight:500;color:' + color + ';display:flex;align-items:center;gap:6px">' + h.icon + ' ' + h.name + '</div>'
+      + '<div style="font-size:11px;color:var(--muted)">' + pct + '% · ' + (streak > 0 ? '🔥' + streak : '—') + '</div>'
+      + '</div>'
+      + '<div style="position:relative;padding-top:24px">'
+      + person
+      + '<div style="display:flex;align-items:flex-end;gap:2px;height:44px">' + bars + '</div>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:space-between;margin-top:5px">'
+      + '<span style="font-size:9px;color:var(--muted)">' + startLbl + '</span>'
+      + '<span style="font-size:9px;color:var(--muted)">' + midLbl + '</span>'
+      + '<span style="font-size:9px;color:var(--muted)">' + endLbl + '</span>'
+      + '</div></div>';
+  });
 
   document.getElementById('calendar').innerHTML = legend + cards;
 }
