@@ -993,7 +993,7 @@
         <h1 id="appTitle">30-Day <em>Challenge</em></h1>
         <div style="display:flex;align-items:center;gap:8px;margin-top:6px;position:relative">
           <!-- Notification bell -->
-          <button class="header-icon-btn" onclick="toggleNotifTray()" title="Notifications">
+          <button class="header-icon-btn" id="notifBellBtn" onclick="toggleNotifTray()" title="Notifications">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
               <path d="M8 1.5a4.5 4.5 0 0 1 4.5 4.5c0 2.5.8 3.5 1.5 4.5H2c.7-1 1.5-2 1.5-4.5A4.5 4.5 0 0 1 8 1.5z"/>
               <path d="M6.5 13.5a1.5 1.5 0 0 0 3 0"/>
@@ -1187,7 +1187,7 @@ const COLORS = ['p1','p2','p3','p4','p5','p6'];
 const COLOR_VARS = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)'];
 const COLOR_VALS = ['#2563b0','#177a57','#6b45c8','#c47d0e','#b5344a','#0e7490'];
 
-let habits = [], checked = {}, notes = {}, reflections = {}, notifications = [], freezes = {}, morningInsights = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
+let habits = [], checked = {}, notes = {}, reflections = {}, notifications = [], freezes = {}, freezeMilestones = {}, morningInsights = {}, startDate = null, challengeTitle = "30-Day Challenge", userName = "", currentView = 'daily';
 
 const CHECK_SVG = `<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><polyline points="1.5,4.5 3.5,7 7.5,2" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const CHECK_SVG_LG = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9.5 10,2.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -1201,7 +1201,7 @@ function lsKey() { return currentUserId ? `_30dc_${currentUserId}` : '_30dc_anon
 // Write to both Firestore (source of truth) and localStorage (cache)
 function save() {
   const data = {
-    habits, checked, notes, reflections, notifications, freezes, morningInsights,
+    habits, checked, notes, reflections, notifications, freezes, freezeMilestones, morningInsights,
     startDate: startDate || null,
     challengeTitle, userName
   };
@@ -1694,7 +1694,7 @@ async function startChallenge() {
 
   if (isNewChallenge) {
     // Fresh start — clear all progress data
-    checked = {}; freezes = {}; notifications = []; morningInsights = {}; reflections = {};
+    checked = {}; freezes = {}; freezeMilestones = {}; notifications = []; morningInsights = {}; reflections = {};
   }
   // Editing existing challenge — preserve checked, notes, reflections, freezes, morningInsights
 
@@ -1956,9 +1956,12 @@ function habitCompletion(p) {
 function maybeAwardFreeze(p) {
   const streak = habitStreak(p);
   if (streak > 0 && streak % 7 === 0) {
+    const alreadyAwardedFor = freezeMilestones[p] || 0;
+    if (streak <= alreadyAwardedFor) return; // already credited this exact milestone — don't re-award on re-toggle
     const current = freezes[p] || 0;
     if (current < 2) {
       freezes[p] = current + 1;
+      freezeMilestones[p] = streak;
       save();
       addNotification(
         'freeze_earned',
@@ -2121,7 +2124,7 @@ function deleteHabit(idx) {
   checked=nc; notes=nn; reflections={}; save(); render(); renderSettingsRows();
 }
 
-function resetProgress() { if(!confirm('Reset all checked days?')) return; checked={}; freezes={}; notifications=[]; save(); render(); renderNotifications(); }
+function resetProgress() { if(!confirm('Reset all checked days?')) return; checked={}; freezes={}; freezeMilestones={}; notifications=[]; save(); render(); renderNotifications(); }
 
 function toggleSettings() {
   const btn=document.getElementById('settingsToggle'), panel=document.getElementById('settingsPanel');
@@ -2691,7 +2694,7 @@ function submitFeedback() {
 
 function loadDataIntoApp(s) {
   habits = s.habits; checked = s.checked || {}; notes = s.notes || {}; reflections = s.reflections || {};
-  notifications = s.notifications || []; freezes = s.freezes || {}; morningInsights = s.morningInsights || {};
+  notifications = s.notifications || []; freezes = s.freezes || {}; freezeMilestones = s.freezeMilestones || {}; morningInsights = s.morningInsights || {};
   startDate = s.startDate ? s.startDate.slice(0, 10) : null;
   challengeTitle = s.challengeTitle || '30-Day Challenge';
   userName = s.userName || '';
@@ -2907,7 +2910,7 @@ function timeAgo(ts) {
 // Close notif tray when clicking outside
 document.addEventListener('click', (e) => {
   const tray = document.getElementById('notifTray');
-  const bell = tray?.previousElementSibling;
+  const bell = document.getElementById('notifBellBtn');
   if (tray && !tray.contains(e.target) && !bell?.contains(e.target)) {
     tray.classList.remove('open');
   }
